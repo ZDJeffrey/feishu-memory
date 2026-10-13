@@ -11,11 +11,12 @@ description: 通过飞书 CLI 为 Codex 和具有本地工具的桌面对话提�
 
 ## 首次调用
 
-1. 检查 Python 3.9+，执行本技能目录中的 `scripts/memory.py doctor`。缺少运行时、CLI、配套技能、资源配置或有效授权时，读取 [首次配置](references/setup.md)，按照飞书 CLI 官方仓库当前 README 补齐安装，再按已有应用或新建应用分支配置和授权。
-2. 优先复用已有飞书应用、CLI profile 和记忆空间。换机器时使用原应用的 App ID，由用户在新机器终端安全输入 App Secret，再完成用户授权；应用选择尚未明确时先询问。根据用户给出的资源配置或飞书入口连接，空间尚未明确时询问连接目标。
-3. 在 Codex 中执行本技能目录的 `scripts/install.py --activate-only`，把当前技能路径登记到生效的全局指令文件，保留已有指令；用户限定仅本次使用时跳过登记。首次接入后验证范围检索、章节读取与项目入口。
+1. 检查 Python 3.9+，执行本技能目录中的 `scripts/memory.py doctor`。缺少环境或配置时读取 [首次配置](references/setup.md)，由 Agent 按官方 README 安装 CLI 和配套技能；已有配置直接复用。
+2. 应用尚未绑定时，请用户提供 App ID。Agent 选择 CLI profile，并给出可直接运行的配置命令；用户在本机终端运行命令并隐藏输入 App Secret。Agent 随后核对配置，发起用户授权并展示链接和二维码；用户完成授权后，由 Agent 完成登录。
+3. Agent 自动查找并连接已有记忆空间，首次建立时创建独立空间；根据实际资源生成本机配置，选择并记录 profile、目录链和文档入口。用户提供入口或旧配置时优先使用；仅在目标有歧义或迁移检索受阻时补充询问。
+4. 在 Codex 中执行本技能目录中的 `scripts/install.py --activate-only` 登记全局入口，保留已有指令；用户限定仅本次使用时跳过登记。验证范围检索、章节读取与项目入口后继续原任务。
 
-主动完成可执行的准备工作，仅在缺少必要信息、需要浏览器授权或管理员审批时等待用户。配置与授权完成后恢复原任务；同一会话复用已验证的就绪状态。
+默认交互顺序为：安装技能 → 调用技能 → 用户提供 App ID → Agent 给出配置命令 → 用户执行 → Agent 发起授权 → 用户授权 → Agent 完成其余配置。Agent 负责 profile、记忆空间、本机资源配置、入口登记和验证；旧配置文件为可选迁移方式。已有配置和有效授权跳过对应步骤，同一会话复用已验证状态。
 
 本地配置默认位于 `~/.config/feishu-memory/config.json`；可用 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。CLI 从 PATH 查找，可用 `FEISHU_MEMORY_CLI` 指定。资源配置保存 profile 和远程位置，应用凭据与用户令牌由各机器的 CLI 管理。
 

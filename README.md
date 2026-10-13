@@ -24,7 +24,18 @@ python3 scripts/install.py --activate
 
 ## 首次使用
 
-Agent 将环境准备作为任务的前置步骤：检查 Python、飞书 CLI 和配套技能，按照 [官方 README](https://github.com/larksuite/cli/blob/main/README.zh.md) 补齐安装与应用配置，引导用户授权，并连接记忆空间。已有配置优先复用，空间尚未明确时询问连接目标；浏览器授权和管理员审批由用户配合完成。
+安装并调用技能后，默认流程如下：
+
+| 执行方 | 操作 |
+| --- | --- |
+| 用户 | 提供已有飞书应用的 App ID。 |
+| Agent | 按[官方 README](https://github.com/larksuite/cli/blob/main/README.zh.md)安装缺失的 CLI 和配套技能，选择 profile，给出可直接执行的配置命令。 |
+| 用户 | 在本机终端运行命令，隐藏输入 App Secret。 |
+| Agent | 核对应用配置，发起用户授权并展示链接和二维码。 |
+| 用户 | 在浏览器完成授权。 |
+| Agent | 完成登录，查找并连接已有记忆空间，首次建立时创建独立空间；生成本机配置、登记入口、验证并继续原任务。 |
+
+已有配置与有效授权直接复用。profile、目录与资源配置由 Agent 管理；只有多个空间候选、迁移检索受阻或管理员审批等情况需要用户补充处理。
 
 首次调用会登记全局记忆入口，准备就绪后继续原任务，结束时维护项目状态。[完整设置流程](references/setup.md) 随技能提供。通过 `npx` 安装时，入口登记使用 `scripts/install.py --activate-only` 保留原安装位置；用户可指定仅在本次任务使用。
 
@@ -38,9 +49,9 @@ Agent 将环境准备作为任务的前置步骤：检查 Python、飞书 CLI �
 
 ## 换机器
 
-安装本技能，复制自己的 `~/.config/feishu-memory/config.json` 或提供飞书入口，再用 `$feishu-memory` 提出任务。Agent 按需安装 CLI，优先复用原飞书应用：提供原 App ID，在新机器终端安全输入 App Secret，再用原飞书账号完成用户授权。原应用已审批的权限继续使用，新增权限按实际需要申请；具体操作见[复用已有应用](references/setup.md#复用已有应用)。
+安装并调用本技能，应用尚未绑定时提供原 App ID，按 Agent 给出的命令完成终端配置和浏览器授权。Agent 自动搜索“记忆系统入口”、核对原空间并生成本机资源配置。CLI 已就绪时直接进入空间发现；已有配置文件和入口链接可作为可选的定位方式。具体操作见[自动发现与连接记忆空间](references/setup.md#自动发现与连接记忆空间)。
 
-资源配置保存 profile 和远程记忆位置，应用凭据与用户令牌由各机器的 CLI 独立管理。新机器的 profile 名应与资源配置一致。CLI 可通过 PATH、`FEISHU_MEMORY_CLI` 或配置中的可选 `cli` 字段定位；资源配置可通过 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。
+资源配置保存本机实际 profile 和远程记忆位置，应用凭据与用户令牌由各机器的 CLI 独立管理。CLI 可通过 PATH、`FEISHU_MEMORY_CLI` 或配置中的可选 `cli` 字段定位；资源配置可通过 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。
 
 执行器仅使用 Python 3.9+ 标准库。当前实机验证平台为 macOS；Linux 和 Windows 分支需要对应平台验证。本机锁协调本机写入，多机器同时写同一文档时使用统一写入方。
 
