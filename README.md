@@ -38,7 +38,9 @@ Agent 将环境准备作为任务的前置步骤：检查 Python、飞书 CLI �
 
 ## 换机器
 
-安装本技能，复制自己的资源配置或提供飞书入口，再用 `$feishu-memory` 提出任务。Agent 按需安装 CLI、配置应用并引导授权，然后读取记忆继续工作。CLI 可通过 PATH、`FEISHU_MEMORY_CLI` 或配置中的可选 `cli` 字段定位；资源配置可通过 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。
+安装本技能，复制自己的 `~/.config/feishu-memory/config.json` 或提供飞书入口，再用 `$feishu-memory` 提出任务。Agent 按需安装 CLI，优先复用原飞书应用：提供原 App ID，在新机器终端安全输入 App Secret，再用原飞书账号完成用户授权。原应用已审批的权限继续使用，新增权限按实际需要申请；具体操作见[复用已有应用](references/setup.md#复用已有应用)。
+
+资源配置保存 profile 和远程记忆位置，应用凭据与用户令牌由各机器的 CLI 独立管理。新机器的 profile 名应与资源配置一致。CLI 可通过 PATH、`FEISHU_MEMORY_CLI` 或配置中的可选 `cli` 字段定位；资源配置可通过 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。
 
 执行器仅使用 Python 3.9+ 标准库。当前实机验证平台为 macOS；Linux 和 Windows 分支需要对应平台验证。本机锁协调本机写入，多机器同时写同一文档时使用统一写入方。
 

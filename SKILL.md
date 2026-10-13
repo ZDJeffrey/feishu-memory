@@ -11,13 +11,13 @@ description: 通过飞书 CLI 为 Codex 和具有本地工具的桌面对话提�
 
 ## 首次调用
 
-1. 检查 Python 3.9+，执行本技能目录中的 `scripts/memory.py doctor`。缺少运行时、CLI、配套技能、资源配置或有效授权时，读取 [首次配置](references/setup.md)，按照飞书 CLI 官方仓库当前 README 补齐环境、配置应用并取得用户授权。
-2. 优先复用已有配置和记忆空间；根据用户给出的资源配置或飞书入口连接。目标尚未明确时，询问连接已有空间还是新建独立空间。
+1. 检查 Python 3.9+，执行本技能目录中的 `scripts/memory.py doctor`。缺少运行时、CLI、配套技能、资源配置或有效授权时，读取 [首次配置](references/setup.md)，按照飞书 CLI 官方仓库当前 README 补齐安装，再按已有应用或新建应用分支配置和授权。
+2. 优先复用已有飞书应用、CLI profile 和记忆空间。换机器时使用原应用的 App ID，由用户在新机器终端安全输入 App Secret，再完成用户授权；应用选择尚未明确时先询问。根据用户给出的资源配置或飞书入口连接，空间尚未明确时询问连接目标。
 3. 在 Codex 中执行本技能目录的 `scripts/install.py --activate-only`，把当前技能路径登记到生效的全局指令文件，保留已有指令；用户限定仅本次使用时跳过登记。首次接入后验证范围检索、章节读取与项目入口。
 
 主动完成可执行的准备工作，仅在缺少必要信息、需要浏览器授权或管理员审批时等待用户。配置与授权完成后恢复原任务；同一会话复用已验证的就绪状态。
 
-本地配置默认位于 `~/.config/feishu-memory/config.json`；可用 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。CLI 从 PATH 查找，可用 `FEISHU_MEMORY_CLI` 指定。迁移时复用自己的资源配置，在新机器完成应用配置与用户授权。
+本地配置默认位于 `~/.config/feishu-memory/config.json`；可用 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。CLI 从 PATH 查找，可用 `FEISHU_MEMORY_CLI` 指定。资源配置保存 profile 和远程位置，应用凭据与用户令牌由各机器的 CLI 管理。
 
 ## 开始任务
 

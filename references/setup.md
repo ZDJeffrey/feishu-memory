@@ -6,7 +6,7 @@
 
 ## 安装飞书 CLI
 
-CLI 不存在时，先读取 [larksuite/cli 官方 README](https://github.com/larksuite/cli/blob/main/README.zh.md) 的 AI Agent 快速开始，核对当前平台和环境要求。检查 Node.js、npm/npx；安装了版本管理器时先加载其环境。缺少运行时时依据官方要求安装，再继续。
+CLI 不存在时，先读取 [larksuite/cli 官方 README](https://github.com/larksuite/cli/blob/main/README.zh.md) 的安装步骤，核对当前平台和环境要求。检查 Node.js、npm/npx；安装了版本管理器时先加载其环境。缺少运行时时依据官方要求安装，再继续。应用配置按下文选择复用或新建分支；README 的 `config init --new` 用于新建应用。
 
 2026-10-13 核对的 npm 安装入口为：
 
@@ -18,21 +18,50 @@ npx @larksuite/cli@latest install
 
 ## 配置与授权
 
-读取官方 `lark-shared` 技能及身份、配置和权限参考。复用用户选择的 CLI profile；新配置使用独立 profile，例如 `memory`。执行前核对当前版本的帮助，按官方流程配置应用并取得用户授权：
+读取官方 `lark-shared` 技能及身份、配置和权限参考，核对当前版本的 `config init --help`、`profile list` 和 `auth login --help`。应用、用户登录和记忆空间分别配置：应用由 App ID 标识，CLI profile 是本机配置名，记忆资源由 `feishu-memory/config.json` 定位。
+
+### 复用已有应用
+
+本机已有目标 profile 时，核对其 App ID、品牌和授权状态后直接复用。换机器时优先绑定原应用；用户尚未说明应用来源时，询问是否已有应用及其 App ID。缺少本机 CLI 配置只说明需要绑定应用。
+
+由用户在新机器的交互终端安全输入原应用的 App Secret，通过标准输入交给 CLI；密钥留在终端和 CLI 凭据存储中，不进入聊天、命令参数、资源配置或仓库。以下示例使用 Python 的隐藏输入，替换 App ID 和 profile 后交给用户在该机器终端执行：
 
 ```bash
-lark-cli --profile memory config init --new
-lark-cli --profile memory auth login --domain docs,drive
-lark-cli --profile memory auth status --json --verify
+python3 - <<'PY'
+import getpass
+import subprocess
+
+secret = getpass.getpass("App Secret: ")
+result = subprocess.run(
+    ["lark-cli", "config", "init", "--name", "memory", "--app-id", "<APP_ID>", "--app-secret-stdin", "--brand", "feishu"],
+    input=secret + "\n",
+    text=True,
+)
+raise SystemExit(result.returncode)
+PY
 ```
 
-有合适配置时复用它。CLI 提供的配置或授权链接按原样展示，并按官方技能配二维码；浏览器授权或管理员审批完成后，校验状态并恢复原任务。采用官方技能的非阻塞/分步登录方式，以实际版本支持的参数为准。
+`--name` 创建或更新指定 profile；名称应与资源配置中的 `profile` 一致。现有同名 profile 指向其他应用时，先保留它并选用另一个名称。原应用已开通的权限可以继续使用，新增权限按 CLI 返回的缺失项处理。
+
+### 新建应用
+
+用户没有可复用应用，或明确需要独立应用时，执行 `lark-cli config init --name memory --new`，按官方技能引导完成配置和审批。
+
+### 用户登录与验证
+
+应用绑定完成后，新机器通过原飞书账号完成用户授权：
+
+```bash
+lark-cli --profile memory auth login --domain docs,drive --no-wait --json
+```
+
+按官方技能的分步流程先展示授权链接和二维码，用户完成后用本次返回的 `device_code` 执行 `lark-cli --profile memory auth login --device-code <DEVICE_CODE>`，再运行 `lark-cli --profile memory auth status --json --verify`。已有有效登录时直接验证。每台机器独立完成登录；访问令牌和刷新令牌由该机器的 CLI 管理。
 
 初版只使用文档与云空间能力。验证用户身份的文档读写、目录清单和搜索权限；其中搜索使用 `search:docs:read`，目录读取使用 `space:document:retrieve`。已有应用需要补权限时按 CLI 返回的缺失项处理。密钥和令牌由 CLI 凭据存储管理。
 
 ## 连接已有记忆空间
 
-先检查用户指定的配置和默认配置文件。已有配置时核对 profile、实际 CLI 路径和授权，再运行 `begin`。迁移配置默认放在 `~/.config/feishu-memory/config.json`，也可通过 `--config` 指定。
+先检查用户指定的配置和默认配置文件。迁移时将原机器的 `~/.config/feishu-memory/config.json` 私下复制到新机器的同一路径，也可通过 `--config` 指定。此文件保存 profile、目录、文档和项目入口，不包含 App Secret 或用户令牌；应用绑定与用户登录按上一节完成。核对 profile 与新机器的 CLI 配置一致，配置含可选 `cli` 路径时按新机器调整，再运行 `begin` 验证连接到原空间。
 
 用户提供飞书入口时，读取导航与有关目录清单，按返回的资源标识重建配置。既无配置也无已选入口时，只询问连接已有空间还是创建独立空间；用户已经明确选择时直接执行。本机锁只协调本机写入。
 
