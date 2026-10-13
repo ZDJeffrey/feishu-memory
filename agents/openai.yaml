@@ -1,0 +1,4 @@
+interface:
+  display_name: "飞书记忆"
+  short_description: "在新对话中按需读取个人与项目记忆，并在任务完成后维护当前状态"
+  default_prompt: "使用 $feishu-memory 读取当前项目记忆，继续任务并在结束后更新项目状态。"

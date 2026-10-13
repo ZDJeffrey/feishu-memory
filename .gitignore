@@ -1,0 +1,10 @@
+.feishu-memory/
+config.json
+config.local.json
+*.local.json
+.env
+.env.*
+__pycache__/
+*.pyc
+.DS_Store
+dist/

@@ -1,0 +1,15 @@
+{
+  "profile": "memory",
+  "root": "ROOT_FOLDER_TOKEN",
+  "folders": {
+    "NAV_FOLDER_TOKEN": {"name": "00导航", "parent": "ROOT_FOLDER_TOKEN"},
+    "CORE_FOLDER_TOKEN": {"name": "01协作准则", "parent": "ROOT_FOLDER_TOKEN"},
+    "PROJECT_FOLDER_TOKEN": {"name": "示例项目", "parent": "ROOT_FOLDER_TOKEN"}
+  },
+  "documents": {
+    "navigation": {"token": "NAV_DOC_TOKEN", "url": "https://TENANT.feishu.cn/docx/NAV_DOC_TOKEN", "parent": "NAV_FOLDER_TOKEN"},
+    "core": {"token": "CORE_DOC_TOKEN", "url": "https://TENANT.feishu.cn/docx/CORE_DOC_TOKEN", "parent": "CORE_FOLDER_TOKEN"},
+    "example": {"token": "PROJECT_DOC_TOKEN", "url": "https://TENANT.feishu.cn/docx/PROJECT_DOC_TOKEN", "parent": "PROJECT_FOLDER_TOKEN"}
+  },
+  "projects": {"example-project": "example"}
+}
