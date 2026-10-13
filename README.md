@@ -4,9 +4,11 @@
 
 ## 安装
 
-将本仓库交给 Codex 并要求安装，或在仓库目录执行：
+将仓库链接交给 Codex 并要求安装，或在新机器执行：
 
 ```bash
+git clone https://github.com/ZDJeffrey/feishu-memory.git
+cd feishu-memory
 python3 scripts/install.py --activate
 ```
 
