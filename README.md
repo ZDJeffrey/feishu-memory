@@ -47,6 +47,8 @@ python3 scripts/install.py --activate
 
 默认每页最多 5 个搜索结果、每次最多 12000 个正文字符。内容相同跳过写入，版本冲突交回 Agent 重新读取并合并。详见 [读写操作](references/operations.md)。
 
+运行状态统一保存到 `~/.local/state/feishu-memory/`，包括快照、搜索缓存和写回回执；各会话共用，可通过 `--state-dir PATH` 指定其他位置。
+
 ## 换机器
 
 安装并调用本技能，应用尚未绑定时提供原 App ID，按 Agent 给出的命令完成终端配置和浏览器授权。Agent 自动搜索“记忆系统入口”、核对原空间并生成本机资源配置。CLI 已就绪时直接进入空间发现；已有配置文件和入口链接可作为可选的定位方式。具体操作见[自动发现与连接记忆空间](references/setup.md#自动发现与连接记忆空间)。

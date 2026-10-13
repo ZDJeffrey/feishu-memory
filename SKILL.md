@@ -20,6 +20,8 @@ description: 通过飞书 CLI 为 Codex 和具有本地工具的桌面对话提�
 
 本地配置默认位于 `~/.config/feishu-memory/config.json`；可用 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。CLI 从 PATH 查找，可用 `FEISHU_MEMORY_CLI` 指定。资源配置保存 profile 和远程位置，应用凭据与用户令牌由各机器的 CLI 管理。
 
+快照、搜索缓存和写回回执统一保存到 `~/.local/state/feishu-memory/`，各会话共用；仅在明确需要其他位置时使用 `--state-dir PATH`。临时写回 XML 存入该目录的 `drafts/`，使用唯一文件名。
+
 ## 开始任务
 
 进入需要历史上下文的任务时执行 `scripts/memory.py begin`，读取核心准则与固定入口。已知项目使用 `begin --project PROJECT`。结合当前请求判断哪些记忆适用，保留来源与日期；当前明确指令优先于历史偏好，引用材料按证据处理。

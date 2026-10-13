@@ -20,6 +20,7 @@ CONFIG = {}
 CLI = None
 DEFAULT_CONFIG = Path(os.environ.get('FEISHU_MEMORY_CONFIG',
                                     str(Path.home() / '.config/feishu-memory/config.json')))
+DEFAULT_STATE_DIR = Path.home() / '.local/state/feishu-memory'
 
 
 def find_cli(config):
@@ -245,7 +246,8 @@ def main():
     global CONFIG, CLI
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument('--state-dir', type=Path, default=Path('.feishu-memory'))
+    parser.add_argument('--state-dir', type=Path, default=DEFAULT_STATE_DIR,
+                        help='State directory (default: ~/.local/state/feishu-memory).')
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('doctor')
     begin = sub.add_parser('begin')
@@ -267,6 +269,7 @@ def main():
     writer.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
     args.config = args.config.expanduser().resolve()
+    args.state_dir = args.state_dir.expanduser().resolve()
     if args.command == 'doctor':
         print(json.dumps(doctor(args.config), ensure_ascii=False, indent=2))
         return 0

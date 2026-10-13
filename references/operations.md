@@ -1,6 +1,6 @@
 # 读写操作
 
-从当前任务目录运行技能内的 `scripts/memory.py`，路径按实际安装位置解析。配置通过 `--config PATH` 或 `FEISHU_MEMORY_CONFIG` 指定，默认 `~/.config/feishu-memory/config.json`。快照和回执默认保存到当前目录的 `.feishu-memory/`，可用 `--state-dir PATH` 改变。
+可从任意工作目录运行技能内的 `scripts/memory.py`，路径按实际安装位置解析。配置通过 `--config PATH` 或 `FEISHU_MEMORY_CONFIG` 指定，默认 `~/.config/feishu-memory/config.json`。快照、搜索缓存和回执统一保存到 `~/.local/state/feishu-memory/`，各会话共用；可用 `--state-dir PATH` 显式指定其他位置，路径支持 `~` 展开。
 
 ```text
 python3 SKILL_DIR/scripts/memory.py doctor
@@ -16,7 +16,7 @@ python3 SKILL_DIR/scripts/memory.py read KEY --section '章节名'
 
 ## 更新
 
-读取目标章节，把完整的新 XML 文本块保存到任务目录，并提供真实来源位置：
+读取目标章节，把完整的新 XML 文本块以唯一文件名保存到状态目录的 `drafts/` 下，并提供真实来源位置：
 
 ```text
 python3 SKILL_DIR/scripts/memory.py replace KEY --snapshot SNAPSHOT --block-id BLOCK --xml FILE --source SOURCE
