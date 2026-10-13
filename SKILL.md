@@ -1,17 +1,23 @@
 ---
 name: feishu-memory
-description: 通过飞书 CLI 为 Codex 和具有本地工具的桌面对话提供远程记忆。支持首次安装与授权引导、按任务读取个人或项目上下文，以及任务收尾时更新记忆。用于项目接续、科研、开发、写作和明确的记忆维护请求。
+description: 通过飞书 CLI 为 Codex 和具有本地工具的桌面对话提供远程记忆。首次调用按需安装、配置并连接记忆空间，随后读取任务上下文并在收尾时更新。用于项目接续、科研、开发、写作和记忆维护。
 ---
 
 # Feishu Memory
 
 飞书保存记忆正文，本机配置保存资源位置，CLI 管理认证凭据。用户的偏好和项目内容来自其远程空间。
 
-## 首次使用与迁移
+用户以 `$feishu-memory` 加任务描述开始工作。将环境准备纳入任务前置步骤，准备就绪后继续用户原本的任务。
 
-执行本技能目录中的 `scripts/memory.py doctor`。缺少 CLI、配置或有效授权时，读取 [首次配置](references/setup.md)，按飞书 CLI 官方仓库当前 README 完成安装、官方技能安装、应用配置和用户授权，再创建或连接独立记忆目录。
+## 首次调用
 
-本地配置默认位于 `~/.config/feishu-memory/config.json`；可用 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。CLI 从 PATH 查找，可用 `FEISHU_MEMORY_CLI` 指定。迁移时安装本技能、复制自己的资源配置，再在新机器授权。
+1. 检查 Python 3.9+，执行本技能目录中的 `scripts/memory.py doctor`。缺少运行时、CLI、配套技能、资源配置或有效授权时，读取 [首次配置](references/setup.md)，按照飞书 CLI 官方仓库当前 README 补齐环境、配置应用并取得用户授权。
+2. 优先复用已有配置和记忆空间；根据用户给出的资源配置或飞书入口连接。目标尚未明确时，询问连接已有空间还是新建独立空间。
+3. 在 Codex 中执行本技能目录的 `scripts/install.py --activate-only`，把当前技能路径登记到生效的全局指令文件，保留已有指令；用户限定仅本次使用时跳过登记。首次接入后验证范围检索、章节读取与项目入口。
+
+主动完成可执行的准备工作，仅在缺少必要信息、需要浏览器授权或管理员审批时等待用户。配置与授权完成后恢复原任务；同一会话复用已验证的就绪状态。
+
+本地配置默认位于 `~/.config/feishu-memory/config.json`；可用 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。CLI 从 PATH 查找，可用 `FEISHU_MEMORY_CLI` 指定。迁移时复用自己的资源配置，在新机器完成应用配置与用户授权。
 
 ## 开始任务
 

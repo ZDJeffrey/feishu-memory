@@ -14,19 +14,26 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--codex-home', type=Path,
                         default=Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex'))))
-    parser.add_argument('--activate', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--activate', action='store_true',
+                      help='Install the skill and register its global task entry.')
+    mode.add_argument('--activate-only', action='store_true',
+                      help='Register this skill location without copying its files.')
     args = parser.parse_args()
     source = Path(__file__).resolve().parents[1]
     home = args.codex_home.expanduser().resolve()
-    target = home / 'skills/feishu-memory'
+    target = source if args.activate_only else home / 'skills/feishu-memory'
     if target.resolve() != source:
         target.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source / 'SKILL.md', target / 'SKILL.md')
         for name in ('agents', 'scripts', 'references'):
             shutil.copytree(source / name, target / name, dirs_exist_ok=True,
                             ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.local.json'))
-    if args.activate:
-        guidance = home / 'AGENTS.md'
+    if args.activate or args.activate_only:
+        home.mkdir(parents=True, exist_ok=True)
+        override = home / 'AGENTS.override.md'
+        use_override = override.exists() and override.read_text(encoding='utf-8').strip()
+        guidance = override if use_override else home / 'AGENTS.md'
         original = guidance.read_text(encoding='utf-8') if guidance.exists() else ''
         block = (f'{START}\n'
                  '科研、开发、写作、环境操作、项目接续及记忆维护任务，'
@@ -41,12 +48,10 @@ def main():
             updated = original.rstrip() + '\n\n' + block + '\n'
         if updated != original:
             if guidance.exists():
-                shutil.copy2(guidance, guidance.with_name('AGENTS.md.before-feishu-memory'))
+                shutil.copy2(guidance, guidance.with_name(guidance.name + '.before-feishu-memory'))
             guidance.write_text(updated, encoding='utf-8')
         print(f'Activated: {guidance}')
-        if (home / 'AGENTS.override.md').exists():
-            print('AGENTS.override.md exists; add the same entry there if it is the active global instruction file.')
-    print(f'Installed: {target}')
+    print(f'{"Registered" if args.activate_only else "Installed"}: {target}')
 
 
 if __name__ == '__main__':

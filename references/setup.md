@@ -1,6 +1,8 @@
 # 首次配置与迁移
 
-此流程由使用技能的 Agent 执行。运行 `python3 scripts/memory.py doctor` 检查安装和配置；命令路径以实际技能目录为准。以下命令中的 profile、目录和资源标识来自当前用户的选择与 CLI 实际返回。
+此流程由使用技能的 Agent 在首次任务中执行，完成后继续原任务。命令路径以实际技能目录为准；profile、目录和资源标识来自用户已有配置、明确选择及 CLI 实际返回。
+
+先检查 Python 3.9+，缺少时安装当前平台适用的运行时，再执行 `python3 scripts/memory.py doctor`。Windows 可用 `py -3`。复用已配置的环境和有效授权，按检查结果补齐缺失项。
 
 ## 安装飞书 CLI
 
@@ -24,13 +26,15 @@ lark-cli --profile memory auth login --domain docs,drive
 lark-cli --profile memory auth status --json --verify
 ```
 
-有合适配置时复用它。CLI 提供的配置或授权链接按原样展示，并按官方技能配二维码；浏览器授权或管理员审批完成后再继续。采用官方技能的非阻塞/分步登录方式，以实际版本支持的参数为准。
+有合适配置时复用它。CLI 提供的配置或授权链接按原样展示，并按官方技能配二维码；浏览器授权或管理员审批完成后，校验状态并恢复原任务。采用官方技能的非阻塞/分步登录方式，以实际版本支持的参数为准。
 
 初版只使用文档与云空间能力。验证用户身份的文档读写、目录清单和搜索权限；其中搜索使用 `search:docs:read`，目录读取使用 `space:document:retrieve`。已有应用需要补权限时按 CLI 返回的缺失项处理。密钥和令牌由 CLI 凭据存储管理。
 
 ## 连接已有记忆空间
 
-用户迁移已有空间时，将其资源配置放在 `~/.config/feishu-memory/config.json`，或通过 `--config` 指定。核对 profile 和实际 CLI 路径，在新机器重新授权，然后运行 `begin`。本机锁只协调本机写入。
+先检查用户指定的配置和默认配置文件。已有配置时核对 profile、实际 CLI 路径和授权，再运行 `begin`。迁移配置默认放在 `~/.config/feishu-memory/config.json`，也可通过 `--config` 指定。
+
+用户提供飞书入口时，读取导航与有关目录清单，按返回的资源标识重建配置。既无配置也无已选入口时，只询问连接已有空间还是创建独立空间；用户已经明确选择时直接执行。本机锁只协调本机写入。
 
 ## 创建新的记忆空间
 
@@ -44,6 +48,14 @@ lark-cli --profile memory auth status --json --verify
 
 ## 新对话发现
 
-在仓库根目录运行 `python3 scripts/install.py --activate`，将技能安装到 Codex 的技能目录，并向全局 `AGENTS.md` 添加简短调用入口；原有指令保留。仅安装技能可省略 `--activate`，在对话中显式使用 `$feishu-memory`。
+首次在 Codex 中调用本技能时，执行当前技能目录的安装器登记全局入口：
+
+```bash
+python3 scripts/install.py --activate-only
+```
+
+该模式保留当前技能安装位置，适用于 `npx skills add`、Codex 技能安装器或手动安装。入口按照 [Codex 指令发现规则](https://developers.openai.com/codex/guides/agents-md) 写入 `${CODEX_HOME:-~/.codex}` 下生效的 `AGENTS.override.md`（存在且非空时）或 `AGENTS.md`，只更新本技能的标记区并保留其他指令；重复执行保持同一入口。用户明确限定仅本次使用时省略登记。
+
+从源码仓库安装到 Codex 技能目录可运行 `python3 scripts/install.py --activate`。后续对话直接使用 `$feishu-memory` 加任务描述，或按全局入口在相关任务中调用。
 
 运行时配置、认证凭据、快照和回执留在用户环境；源码仓库包含通用技能和配置模板。发布前检查待提交文件清单。

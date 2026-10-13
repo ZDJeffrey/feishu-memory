@@ -4,7 +4,13 @@
 
 ## 安装
 
-将仓库链接交给 Codex 并要求安装，或在新机器执行：
+将仓库链接交给 Codex 并要求安装，或使用技能安装器：
+
+```bash
+npx skills add ZDJeffrey/feishu-memory --skill feishu-memory --agent codex --global
+```
+
+也可从源码安装：
 
 ```bash
 git clone https://github.com/ZDJeffrey/feishu-memory.git
@@ -12,13 +18,15 @@ cd feishu-memory
 python3 scripts/install.py --activate
 ```
 
-安装器将技能放入 `${CODEX_HOME:-~/.codex}/skills/feishu-memory`，并保留已有全局指令。省略 `--activate` 时只安装技能，在对话中用 `$feishu-memory` 调用。Windows 可使用 `py -3` 执行脚本。
+仓库安装器将技能放入 `${CODEX_HOME:-~/.codex}/skills/feishu-memory`；`--activate` 同时登记全局调用入口并保留已有指令。Windows 可使用 `py -3` 执行脚本。
 
-新开对话后可直接说：“使用 feishu-memory，配置我的远程记忆并继续当前项目。”
+新开对话后直接给出任务，例如：`$feishu-memory 继续论文项目，整理当前进展和下一步。`
 
 ## 首次使用
 
-技能先检查飞书 CLI。未安装时，由 Agent 阅读 [官方 README](https://github.com/larksuite/cli/blob/main/README.zh.md) 并完成安装；随后引导应用配置、浏览器授权和独立记忆目录初始化。已有空间可直接连接。[完整设置流程](references/setup.md) 随技能提供。
+Agent 将环境准备作为任务的前置步骤：检查 Python、飞书 CLI 和配套技能，按照 [官方 README](https://github.com/larksuite/cli/blob/main/README.zh.md) 补齐安装与应用配置，引导用户授权，并连接记忆空间。已有配置优先复用，空间尚未明确时询问连接目标；浏览器授权和管理员审批由用户配合完成。
+
+首次调用会登记全局记忆入口，准备就绪后继续原任务，结束时维护项目状态。[完整设置流程](references/setup.md) 随技能提供。通过 `npx` 安装时，入口登记使用 `scripts/install.py --activate-only` 保留原安装位置；用户可指定仅在本次任务使用。
 
 用户配置默认保存在 `~/.config/feishu-memory/config.json`，结构见 [配置模板](references/config.example.json)。认证凭据由飞书 CLI 管理。技能源码独立于账号、文档标识和机器路径。
 
@@ -30,7 +38,7 @@ python3 scripts/install.py --activate
 
 ## 换机器
 
-安装本技能，复制自己的资源配置，在新机器安装飞书 CLI 并完成授权，然后运行 `begin`。CLI 可通过 PATH、`FEISHU_MEMORY_CLI` 或配置中的可选 `cli` 字段定位；资源配置可通过 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。
+安装本技能，复制自己的资源配置或提供飞书入口，再用 `$feishu-memory` 提出任务。Agent 按需安装 CLI、配置应用并引导授权，然后读取记忆继续工作。CLI 可通过 PATH、`FEISHU_MEMORY_CLI` 或配置中的可选 `cli` 字段定位；资源配置可通过 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。
 
 执行器仅使用 Python 3.9+ 标准库。当前实机验证平台为 macOS；Linux 和 Windows 分支需要对应平台验证。本机锁协调本机写入，多机器同时写同一文档时使用统一写入方。
 
