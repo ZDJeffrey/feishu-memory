@@ -27,4 +27,4 @@
 
 ## 执行边界
 
-`memory.py` 自动核对已登记 Wiki 页面的节点父链与内容对象，并继续服务原记忆目录。外部资料通过 Wiki 概述页登记，Agent 按范围调用官方技能；外部目录不放入 folders 冒充内部后代。外部资源尚未实现统一自动拦截，实际访问权限由 CLI 身份、OAuth 和飞书资源权限决定。
+`memory.py` 核对 Wiki 节点父链与内容对象；平级 Drive 文件夹通过 drive_roots 登记 token、实际 parent、name 和 access（read 或 write），Docx 条目用 drive_root 绑定目录键。读取、搜索和写回核对归属，写回要求 write；根目录移动后先更新用户确认的资源登记。平级目录分别登记，避免将云空间根作为共同授权范围。表格、画板、幻灯片及直接调用官方 CLI 的操作仍由 Agent 按索引核验，实际访问权限由 CLI 身份、OAuth 和飞书资源权限决定。

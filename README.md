@@ -43,17 +43,17 @@ python3 scripts/install.py --activate
 
 ## 日常流程
 
-Wiki 作为用户与 Agent 共用入口。`begin` 读取核心摘要与首页；`begin --project PROJECT` 或 `begin --topic TOPIC` 直接读取对应概述。`browse KEY` 查看当前层节点，`search` 在已登记 Wiki 空间检索，`--source memory` 查询原记忆目录；`read` 按章节展开。`replace` 校验 Wiki 节点归属或 Drive 目录链及读取版本，写后回读。
+Wiki 作为用户与 Agent 共用入口。`begin` 读取核心摘要与首页；`begin --project PROJECT` 或 `begin --topic TOPIC` 直接读取对应概述。`browse KEY` 查看当前层节点，`search` 在已登记 Wiki 空间检索，`--resource RESOURCE` 查询已登记项目资料目录；`read` 按章节展开。`replace` 校验 Wiki 节点归属或 Drive 目录链及读取版本，写后回读。
 
 默认启动正文预算 4000 字符，普通读取上限 12000 字符；每页最多 5 个搜索或节点结果。内容相同跳过写入，版本冲突交回 Agent 重新读取并合并。详见 [读写操作](references/operations.md)。
 
-项目、论文和学习资料可存放在用户维护的外部目录。通过记忆中的资源索引登记入口、读取范围和可写位置，Agent 按需调用官方飞书技能；具体约定见 [外部资源接入](references/external-resources.md)。脚本核对已登记 Wiki 与记忆根目录，外部范围由 Agent 按索引核对。
+项目、论文和学习资料可存放在用户维护的外部目录。通过记忆中的资源索引登记入口、读取范围和可写位置，Agent 按需调用官方飞书技能；具体约定见 [外部资源接入](references/external-resources.md)。通用记忆正文保存在 Wiki；项目资料使用平级文件夹，可同时保存记录、报告和汇报产物。脚本核对 Wiki 节点及登记 Drive 根目录、目录链与读写级别，其他官方工具操作由 Agent 按索引核对。Wiki 配置无需旧 Drive 根目录。
 
 运行状态统一保存到 `~/.local/state/feishu-memory/`，包括快照、搜索缓存和写回回执；各会话共用，可通过 `--state-dir PATH` 指定其他位置。
 
 ## 换机器
 
-安装并调用本技能，应用尚未绑定时提供原 App ID，按 Agent 给出的命令完成终端配置和浏览器授权。Agent 自动搜索“记忆系统入口”、核对原空间并生成本机资源配置。CLI 已就绪时直接进入空间发现；已有配置文件和入口链接可作为可选的定位方式。具体操作见[自动发现与连接记忆空间](references/setup.md#自动发现与连接记忆空间)。
+安装并调用本技能，应用尚未绑定时提供原 App ID，按 Agent 给出的命令完成终端配置和浏览器授权。Agent 自动搜索“知识与协作入口”、核对 Wiki 空间并生成本机资源配置。CLI 已就绪时直接进入空间发现；已有配置文件和入口链接可作为可选的定位方式。具体操作见[自动发现与连接记忆空间](references/setup.md#自动发现与连接记忆空间)。
 
 资源配置保存本机实际 profile 和远程记忆位置，应用凭据与用户令牌由各机器的 CLI 独立管理。CLI 可通过 PATH、`FEISHU_MEMORY_CLI` 或配置中的可选 `cli` 字段定位；资源配置可通过 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。
 
@@ -66,4 +66,4 @@ python3 scripts/check.py
 python3 scripts/memory.py doctor
 ```
 
-`check.py` 检查配置独立性、预算、目录约束、版本冲突和重复更新等行为；`doctor` 检查当前用户的运行环境。实际读写验证在用户自己的独立记忆目录中执行，结果保留在本机。
+`check.py` 检查配置独立性、预算、目录约束、版本冲突和重复更新等行为；`doctor` 检查当前用户的运行环境。实际读写验证在用户授权的 Wiki 与资料目录中执行，结果保留在本机。

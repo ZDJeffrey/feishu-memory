@@ -1,20 +1,6 @@
 {
   "profile": "memory",
-  "root": "ROOT_FOLDER_TOKEN",
-  "folders": {
-    "NAV_FOLDER_TOKEN": {
-      "name": "00导航",
-      "parent": "ROOT_FOLDER_TOKEN"
-    },
-    "CORE_FOLDER_TOKEN": {
-      "name": "01协作准则",
-      "parent": "ROOT_FOLDER_TOKEN"
-    },
-    "PROJECT_FOLDER_TOKEN": {
-      "name": "示例项目",
-      "parent": "ROOT_FOLDER_TOKEN"
-    }
-  },
+  "folders": {},
   "documents": {
     "navigation": {
       "token": "HOME_DOC_TOKEN",
@@ -36,8 +22,15 @@
     },
     "core_detail": {
       "token": "CORE_DOC_TOKEN",
-      "url": "https://TENANT.feishu.cn/docx/CORE_DOC_TOKEN",
-      "parent": "CORE_FOLDER_TOKEN"
+      "url": "https://TENANT.feishu.cn/wiki/CORE_DETAIL_NODE_TOKEN",
+      "wiki_node": "CORE_DETAIL_NODE_TOKEN",
+      "wiki_parent": "HOME_NODE_TOKEN"
+    },
+    "example_report": {
+      "token": "REPORT_DOC_TOKEN",
+      "url": "https://TENANT.feishu.cn/docx/REPORT_DOC_TOKEN",
+      "parent": "PROJECT_FOLDER_TOKEN",
+      "drive_root": "example-project"
     }
   },
   "projects": {
@@ -48,5 +41,13 @@
     "root_node": "HOME_NODE_TOKEN"
   },
   "startup_budget": 4000,
-  "topics": {}
+  "topics": {},
+  "drive_roots": {
+    "example-project": {
+      "name": "示例项目",
+      "token": "PROJECT_FOLDER_TOKEN",
+      "parent": "CLOUD_PARENT_TOKEN",
+      "access": "write"
+    }
+  }
 }

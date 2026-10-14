@@ -53,7 +53,8 @@ def doctor(config_path):
 
 @contextmanager
 def local_lock():
-    digest = hashlib.sha256((str(Path.home()) + CONFIG['root']).encode()).hexdigest()[:24]
+    namespace = CONFIG.get('wiki', {}).get('root_node') or CONFIG['root']
+    digest = hashlib.sha256((str(Path.home()) + namespace).encode()).hexdigest()[:24]
     path = Path(tempfile.gettempdir()) / f'feishu-memory-{digest}.lock'
     with path.open('a+b') as lock:
         if os.name == 'nt':
@@ -107,8 +108,7 @@ def signature(element):
 
 
 def fetch(key, **scope):
-    if CONFIG['documents'][key].get('wiki_node'):
-        check_location(key)
+    check_location(key)
     args = ['docs', '+fetch', '--doc', CONFIG['documents'][key]['token'], '--detail', 'full']
     for name, value in scope.items():
         args += ['--' + name.replace('_', '-'), str(value)]
@@ -159,7 +159,20 @@ def list_folder(folder):
         params['page_token'] = data['next_page_token']
 
 
-def check_location(key):
+def check_drive_root(key, write=False):
+    resource = CONFIG.get('drive_roots', {}).get(key)
+    if not resource or resource.get('access') not in {'read', 'write'}:
+        raise ValueError('Drive 资料根目录未启用；先核对资源索引。')
+    if write and resource['access'] != 'write':
+        raise ValueError('此 Drive 资料目录仅允许读取。')
+    match = next((item for item in list_folder(resource['parent'])
+                  if item['token'] == resource['token']), None)
+    if not match or match['type'] != 'folder' or match['parent_token'] != resource['parent']:
+        raise ValueError('Drive 资料根目录位置已变化；先核对资源索引。')
+    return resource['token']
+
+
+def check_location(key, write=False):
     doc = CONFIG['documents'][key]
     if doc.get('wiki_node'):
         wiki = CONFIG['wiki']
@@ -181,9 +194,15 @@ def check_location(key):
                 return
             node = expected['wiki_parent']
         raise ValueError('Wiki 节点不属于已登记的入口子树。')
-    chain = []
+    root = check_drive_root(doc['drive_root'], write) if doc.get('drive_root') else CONFIG.get('root')
+    if not root:
+        raise ValueError('Drive 文档未登记资料根目录。')
+    chain, visited = [], set()
     parent = doc['parent']
-    while parent != CONFIG['root']:
+    while parent != root:
+        if parent in visited or parent not in CONFIG.get('folders', {}):
+            raise ValueError('Drive 目录链未登记或存在循环。')
+        visited.add(parent)
         above = CONFIG['folders'][parent]['parent']
         chain.append((above, parent, 'folder'))
         parent = above
@@ -248,7 +267,7 @@ def replace(args, state):
         e.attrib.pop('id', None)
         e.attrib.pop('seq-marker', None)
     with local_lock():
-        check_location(args.key)
+        check_location(args.key, write=True)
         latest = fetch(args.key, scope='outline')['data']['document']
         if latest['revision_id'] != before['revision_id']:
             return {'status': 'conflict', 'expected_revision': before['revision_id'],
@@ -296,6 +315,23 @@ def replace(args, state):
                 'receipt': str(path.resolve()), 'url': CONFIG['documents'][args.key]['url']}
 
 
+def search_scope(source=None, resource=None):
+    source = source or ('drive' if resource else 'wiki' if CONFIG.get('wiki') else 'memory')
+    if resource and source != 'drive':
+        raise ValueError('--resource 只与 Drive 搜索一起使用。')
+    if source == 'wiki':
+        if not CONFIG.get('wiki'):
+            raise ValueError('Wiki 尚未登记。')
+        return source, ['--space-ids', CONFIG['wiki']['space_id']]
+    if source == 'drive':
+        if not resource:
+            raise ValueError('Drive 搜索须用 --resource 指定已登记资料目录。')
+        return source, ['--folder-tokens', check_drive_root(resource)]
+    if not CONFIG.get('root'):
+        raise ValueError('旧记忆目录未配置；使用 Wiki 或指定 Drive 资料目录。')
+    return source, ['--folder-tokens', CONFIG['root'], '--doc-types', 'docx']
+
+
 def main():
     global CONFIG, CLI
     parser = argparse.ArgumentParser(description=__doc__)
@@ -321,7 +357,8 @@ def main():
     search.add_argument('query')
     search.add_argument('--only-title', action='store_true')
     search.add_argument('--page-token')
-    search.add_argument('--source', choices=['wiki', 'memory'])
+    search.add_argument('--source', choices=['wiki', 'memory', 'drive'])
+    search.add_argument('--resource', help='Registered drive_roots key; selects Drive search.')
     writer = sub.add_parser('replace')
     writer.add_argument('key')
     for name in ('snapshot', 'block-id', 'xml', 'source'):
@@ -359,11 +396,7 @@ def main():
     elif args.command == 'search':
         if not args.query.strip() or len(args.query) > 30:
             raise ValueError('搜索使用 1–30 个字符的实体或主题词。')
-        source = args.source or ('wiki' if CONFIG.get('wiki') else 'memory')
-        if source == 'wiki' and not CONFIG.get('wiki'):
-            raise ValueError('Wiki 尚未登记。')
-        scope = (['--space-ids', CONFIG['wiki']['space_id']] if source == 'wiki'
-                 else ['--folder-tokens', CONFIG['root'], '--doc-types', 'docx'])
+        source, scope = search_scope(args.source, args.resource)
         command = ['drive', '+search', '--query', args.query, *scope, '--page-size', '5']
         if args.only_title:
             command.append('--only-title')

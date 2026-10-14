@@ -6,8 +6,8 @@ Wiki 为用户和 Agent 共用入口。首页只保存分类与用途；项目�
 
 1. 优先复用已登记的 Wiki。无配置时按 setup.md 的稳定标题定位入口，解析 space_id、node_token、obj_token 和实际 parent_node_token；创建响应可能包含虚拟根，登记前用 wiki +node-get 回读实际父节点。
 2. 首次建立独立知识空间与首页，核对 visibility=private、open_sharing=closed 和成员范围。按用户授权设置页面权限；私有空间的新页面仍可能默认组织内链接可读，需逐页核对 link_share_entity 与 external_access_entity。
-3. 初始页面为首页、核心摘要、Agent 记忆、项目、学习与研究；项目和主题概述按实际任务建立。现有正文保留原位置，通过链接接入。
-4. 配置 wiki.space_id 与 wiki.root_node；Wiki 文档登记 token（内容对象）、url、wiki_node 和 wiki_parent，原始节点必须为 docx。从每个登记页面到入口根的祖先都登记在 documents 中。Drive 文档继续使用 parent 与 folders 链，root 保留独立记忆目录。
+3. 初始页面为首页、核心摘要、Agent 记忆、项目、学习与研究；项目和主题概述按实际任务建立。通用准则、偏好、协议与状态正文优先在 Wiki 维护；项目报告、实验与样例保存在平级 Drive 文件夹，通过索引接入。已有资源仅按用户授权迁移。
+4. 配置 wiki.space_id 与 wiki.root_node；Wiki 文档登记 token（内容对象）、url、wiki_node 和 wiki_parent，原始节点必须为 docx。从每个登记页面到入口根的祖先都登记在 documents 中。Drive 资料根目录单独登记在 drive_roots（token、实际 parent、name、access），文档用 drive_root 指定根目录键，并记录 parent；有中间层时用 folders 登记父链。Wiki 配置无需 root，root 仅用于兼容旧 Drive 记忆。
 5. core 指向核心摘要，navigation 指向 Wiki 首页；projects 和 topics 映射短名到概述键。原完整准则和状态页使用独立键。按配置模板登记后运行 begin、定向 begin、browse、章节读取和一次实际写回，核对预算与回执。
 
 现有脚本对 Wiki 文档读写都核对空间、对象、原始节点类型与登记父链；快捷方式需要解析原始目标后单独登记。browse 只列当前层的少量节点，未知键先核验再登记，不自动递归读取。
