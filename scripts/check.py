@@ -49,6 +49,16 @@ class Checks(unittest.TestCase):
         self.assertLessEqual(len(result['content']), 100)
         self.assertIn('x' * 300, json.loads(Path(result['snapshot']).read_text())['response']['data']['document']['content'])
 
+    def test_authentication_does_not_claim_resource_verification(self):
+        config = self.path / 'config.json'
+        m.save(config, m.CONFIG)
+        auth = {'identities': {'user': {'verified': True, 'status': 'ready'}}}
+        process = SimpleNamespace(returncode=0, stdout=json.dumps(auth))
+        with patch.object(m, 'find_cli', return_value='lark-cli'), patch.object(m.subprocess, 'run', return_value=process):
+            result = m.doctor(config)
+        self.assertEqual(result['status'], 'ready')
+        self.assertFalse(result['resources_verified'])
+
     def test_outside_location_stops_write(self):
         with patch.object(m, 'list_folder', return_value=iter([])), patch.object(m, 'cli') as cli:
             with self.assertRaises(ValueError):

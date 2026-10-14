@@ -11,7 +11,7 @@ description: 通过飞书 CLI 为 Codex 和具有本地工具的桌面对话提�
 
 ## 首次调用
 
-1. 检查 Python 3.9+，执行本技能目录中的 `scripts/memory.py doctor`。缺少环境或配置时读取 [首次配置](references/setup.md)，由 Agent 按官方 README 安装 CLI 和配套技能；已有配置直接复用。
+1. 检查 Python 3.9+，执行本技能目录中的 `scripts/memory.py doctor`。缺少环境或配置时读取 [首次配置](references/setup.md)，由 Agent 按官方 README 安装 CLI 和配套技能。doctor 检查环境与认证，资源有效性通过 begin 和当前任务的范围读取核验；已有配置失效时按 [升级与配置重建](references/setup.md#升级与配置重建) 更新本机资源位置。
 2. 应用尚未绑定时，请用户提供 App ID。Agent 选择 CLI profile，并给出可直接运行的配置命令；用户在本机终端运行命令并隐藏输入 App Secret。Agent 随后核对配置，发起用户授权并展示链接和二维码；用户完成授权后，由 Agent 完成登录。
 3. Agent 自动查找并连接已有记忆空间，首次建立时创建独立空间；根据实际资源生成本机配置，选择并记录 profile、目录链和文档入口。用户提供入口或旧配置时优先使用；仅在目标有歧义或迁移检索受阻时补充询问。
 4. 在 Codex 中执行本技能目录中的 `scripts/install.py --activate-only` 登记全局入口，保留已有指令；用户限定仅本次使用时跳过登记。验证范围检索、章节读取与项目入口后继续原任务。

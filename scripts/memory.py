@@ -34,7 +34,8 @@ def doctor(config_path):
     config = json.loads(config_path.read_text(encoding='utf-8')) if config_path.exists() else {}
     binary = find_cli(config)
     result = {'config_path': str(config_path), 'cli_found': bool(binary),
-              'config_found': bool(config), 'setup_guide': 'references/setup.md'}
+              'config_found': bool(config), 'resources_verified': False,
+              'setup_guide': 'references/setup.md'}
     if not binary or not config:
         result['status'] = 'setup_required'
         return result
