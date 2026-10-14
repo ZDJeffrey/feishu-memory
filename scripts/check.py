@@ -26,8 +26,10 @@ class Checks(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name)
-        m.CONFIG = {'root': 'root', 'profile': 'memory', 'folders': {'folder': {'parent': 'root'}},
-                    'documents': {'project': {'token': 'doc', 'parent': 'folder', 'url': 'https://example.test/doc'}}}
+        m.CONFIG = {'wiki': {'root_node': 'home', 'space_id': 'space'},
+                    'profile': 'memory', 'folders': {'folder': {'parent': 'root'}},
+                    'drive_roots': {'project': {'token': 'root', 'parent': 'cloud', 'access': 'write'}},
+                    'documents': {'project': {'token': 'doc', 'parent': 'folder', 'drive_root': 'project', 'url': 'https://example.test/doc'}}}
         self.snapshot = self.path / 'snapshot.json'
         m.save(self.snapshot, {'key': 'project', 'response': response(4, '<p id="block">old</p>')})
         self.content = self.path / 'new.xml'
@@ -109,16 +111,7 @@ class Checks(unittest.TestCase):
                 with m.local_lock():
                     self.fail('Concurrent lock acquired')
 
-    def test_wiki_only_configuration_can_lock(self):
-        m.CONFIG.pop('root')
-        m.CONFIG['wiki'] = {'root_node': 'home', 'space_id': 'space'}
-        with m.local_lock():
-            with self.assertRaises(RuntimeError):
-                with m.local_lock():
-                    self.fail('Concurrent Wiki writer acquired')
-
     def test_registered_peer_folder_read_and_write_scope(self):
-        m.CONFIG.pop('root')
         m.CONFIG['drive_roots'] = {'project': {'token': 'folder', 'parent': 'cloud', 'access': 'write'}}
         m.CONFIG['documents']['project']['drive_root'] = 'project'
         inventory = {'cloud': [{'token': 'folder', 'type': 'folder', 'parent_token': 'cloud'}],
@@ -135,25 +128,23 @@ class Checks(unittest.TestCase):
                 m.fetch('project')
 
     def test_search_never_falls_back_to_unscoped_drive(self):
-        m.CONFIG.pop('root')
-        m.CONFIG['wiki'] = {'space_id': 'space', 'root_node': 'home'}
         self.assertEqual(m.search_scope(), ('wiki', ['--space-ids', 'space']))
-        for source, resource in [('memory', None), ('drive', None), ('drive', 'unknown'), ('wiki', 'project')]:
+        for source, resource in [('unknown', None), ('drive', None), ('drive', 'unknown'), ('wiki', 'project')]:
             with self.subTest(source=source, resource=resource), self.assertRaises(ValueError):
                 m.search_scope(source, resource)
 
-    def test_rootless_unregistered_drive_document_is_not_read(self):
-        m.CONFIG.pop('root')
+    def test_unregistered_drive_document_is_not_read(self):
+        m.CONFIG['documents']['project'].pop('drive_root')
         with patch.object(m, 'cli') as cli, self.assertRaises(ValueError):
             m.fetch('project')
         cli.assert_not_called()
 
     def test_drive_cycle_and_unregistered_ancestor_fail(self):
         m.CONFIG['folders']['folder']['parent'] = 'folder'
-        with self.assertRaises(ValueError):
+        with patch.object(m, 'check_drive_root', return_value='root'), self.assertRaises(ValueError):
             m.check_location('project')
         m.CONFIG['folders']['folder']['parent'] = 'unknown'
-        with self.assertRaises(ValueError):
+        with patch.object(m, 'check_drive_root', return_value='root'), self.assertRaises(ValueError):
             m.check_location('project')
 
     def test_startup_reads_only_core_and_selected_overview(self):

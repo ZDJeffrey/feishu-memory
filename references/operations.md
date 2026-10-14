@@ -16,7 +16,7 @@ python3 SKILL_DIR/scripts/memory.py read KEY --section '章节名'
 
 `begin` 默认只读核心摘要与首页，指定项目或主题时读取对应概述；startup_budget 默认 4000 字符，包含 XML。`browse KEY` 每页列出 5 个直接子节点，只返回元数据；用 --page-token 继续当前层。
 
-`search` 默认检索已登记 Wiki 空间；--resource KEY 选择 drive_roots 中的资料目录，并验证根目录归属。--source memory 仅用于配置了 root 的旧目录，缺少 root 时明确报错。每页最多 5 条，保留 source、has_more 与 page_token；翻页沿用同一查询和来源。新页面可能尚未进入搜索索引，可先用 browse 或登记键读取。外部资料按 [外部资源接入](external-resources.md) 的范围使用对应官方技能。
+`search` 默认检索已登记 Wiki 空间；--resource KEY 选择 drive_roots 中的资料目录，并验证根目录归属。每页最多 5 条，保留 source、has_more 与 page_token；翻页沿用同一查询和来源。新页面可能尚未进入搜索索引，可先用 browse 或登记键读取。外部资料按 [外部资源接入](external-resources.md) 的范围使用对应官方技能。
 
 ## 更新
 
@@ -26,7 +26,7 @@ python3 SKILL_DIR/scripts/memory.py read KEY --section '章节名'
 python3 SKILL_DIR/scripts/memory.py replace KEY --snapshot SNAPSHOT --block-id BLOCK --xml FILE --source SOURCE
 ```
 
-`--dry-run` 生成预览回执。Wiki 文档读写核对已登记空间、节点父链和内容对象；Drive 文档读取和写入核对登记的资料根及目录链，写入要求根目录 access=write。旧 root 配置继续兼容。执行器支持同类型 `p`、`li`、`h1`–`h4` 的完整替换；复杂资源、评论、表格和新章节使用官方 `lark-doc` 工作流。写入回执保存来源、前后内容、基准版本、结果和回读内容。
+`--dry-run` 生成预览回执。Wiki 文档读写核对已登记空间、节点父链和内容对象；Drive 文档读取和写入核对登记的资料根及目录链，写入要求根目录 access=write。执行器支持同类型 `p`、`li`、`h1`–`h4` 的完整替换；复杂资源、评论、表格和新章节使用官方 `lark-doc` 工作流。写入回执保存来源、前后内容、基准版本、结果和回读内容。
 
 | 结果 | 后续动作 |
 | --- | --- |

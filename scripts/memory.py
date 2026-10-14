@@ -54,7 +54,7 @@ def doctor(config_path):
 
 @contextmanager
 def local_lock():
-    namespace = CONFIG.get('wiki', {}).get('root_node') or CONFIG['root']
+    namespace = CONFIG['wiki']['root_node']
     digest = hashlib.sha256((str(Path.home()) + namespace).encode()).hexdigest()[:24]
     path = Path(tempfile.gettempdir()) / f'feishu-memory-{digest}.lock'
     with path.open('a+b') as lock:
@@ -195,9 +195,9 @@ def check_location(key, write=False):
                 return
             node = expected['wiki_parent']
         raise ValueError('Wiki 节点不属于已登记的入口子树。')
-    root = check_drive_root(doc['drive_root'], write) if doc.get('drive_root') else CONFIG.get('root')
-    if not root:
+    if not doc.get('drive_root'):
         raise ValueError('Drive 文档未登记资料根目录。')
+    root = check_drive_root(doc['drive_root'], write)
     chain, visited = [], set()
     parent = doc['parent']
     while parent != root:
@@ -317,7 +317,7 @@ def replace(args, state):
 
 
 def search_scope(source=None, resource=None):
-    source = source or ('drive' if resource else 'wiki' if CONFIG.get('wiki') else 'memory')
+    source = source or ('drive' if resource else 'wiki')
     if resource and source != 'drive':
         raise ValueError('--resource 只与 Drive 搜索一起使用。')
     if source == 'wiki':
@@ -328,9 +328,7 @@ def search_scope(source=None, resource=None):
         if not resource:
             raise ValueError('Drive 搜索须用 --resource 指定已登记资料目录。')
         return source, ['--folder-tokens', check_drive_root(resource)]
-    if not CONFIG.get('root'):
-        raise ValueError('旧记忆目录未配置；使用 Wiki 或指定 Drive 资料目录。')
-    return source, ['--folder-tokens', CONFIG['root'], '--doc-types', 'docx']
+    raise ValueError('搜索来源须为 wiki 或 drive。')
 
 
 def main():
@@ -358,7 +356,7 @@ def main():
     search.add_argument('query')
     search.add_argument('--only-title', action='store_true')
     search.add_argument('--page-token')
-    search.add_argument('--source', choices=['wiki', 'memory', 'drive'])
+    search.add_argument('--source', choices=['wiki', 'drive'])
     search.add_argument('--resource', help='Registered drive_roots key; selects Drive search.')
     writer = sub.add_parser('replace')
     writer.add_argument('key')
