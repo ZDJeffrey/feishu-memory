@@ -12,7 +12,7 @@ python3 SKILL_DIR/scripts/memory.py read KEY --section '章节名'
 
 `read KEY` 返回目录，`--section` 精确匹配标题，`--keyword` 按关键词读取，`--full` 用于确需通读的短文档。KEY 来自配置中的 `documents`。返回 `snapshot`、`revision` 和当前 block ID；`outline_only=true` 时按目录继续缩小范围。
 
-`search` 限定配置的根目录，每页最多 5 条，返回 `has_more` 和 `page_token`。通常检查一页，依据不足时最多继续两页，再调整主题词。新文档可能尚未被索引，可按创建响应直接读取；未登记文档使用官方 CLI 读取，登记其目录链后再用脚本写入。
+`search` 限定配置的记忆根目录，每页最多 5 条，返回 `has_more` 和 `page_token`。通常检查一页，依据不足时最多继续两页，再调整主题词。新文档可能尚未被索引，可按创建响应直接读取；根目录内未登记文档核对目录链后再用脚本写入。外部项目、论文或学习资料按 [外部资源接入](external-resources.md) 的索引范围使用对应官方技能。
 
 ## 更新
 
@@ -37,6 +37,6 @@ python3 SKILL_DIR/scripts/memory.py replace KEY --snapshot SNAPSHOT --block-id B
 
 项目页保存目标、当前状态、关键决定、下一步和证据入口。长期条目含稳定 ID、类型、范围、来源、日期、状态和版本；替代关系放在元数据中，正文呈现当前结论。用户明确反馈、实测、来源声明与推断分别标明。
 
-新增项目先在导航和限定目录搜索中检查现有条目，再通过官方技能创建独立项目文件夹和状态页。回读并核对位置后，更新远程导航与本地配置：`folders` 保存目录链，`documents` 保存键名、token、url、parent，`projects` 将项目短名映射到文档键名。最后从其他工作目录运行 `begin --project PROJECT` 验证接续。
+新增项目记忆先在导航和限定目录搜索中检查现有条目，再通过官方技能创建精简的项目状态页及所需目录；面向用户的项目正文按外部资源索引维护。回读并核对位置后，更新远程导航与本地配置：`folders` 保存目录链，`documents` 保存键名、token、url、parent，`projects` 将项目短名映射到文档键名。最后从其他工作目录运行 `begin --project PROJECT` 验证接续。
 
 资源配置可根据远程导航与目录清单重建。快照和搜索响应是缓存，完成任务后可清理；保留支持重要结论的写入回执。用户配置、缓存和回执独立于源码仓库。
