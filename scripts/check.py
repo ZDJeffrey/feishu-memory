@@ -99,6 +99,51 @@ class Checks(unittest.TestCase):
                 with m.local_lock():
                     self.fail('Concurrent lock acquired')
 
+    def test_startup_reads_only_core_and_selected_overview(self):
+        m.CONFIG.update(projects={'example': 'overview'}, topics={'network': 'network_overview'})
+        def short_read(key, state, mode, budget):
+            return {'key': key, 'content': 'x' * min(30, budget)}
+        for project, topic, expected in [(None, None, 'navigation'), ('example', None, 'overview'),
+                                          (None, 'network', 'network_overview')]:
+            with self.subTest(project=project, topic=topic), patch.object(m, 'read', side_effect=short_read) as read:
+                result = m.begin_context(self.path, project, topic)
+                self.assertEqual([c.args[0] for c in read.call_args_list], ['core', expected])
+                self.assertEqual(result['content_chars'], 60)
+                self.assertEqual(result['budget'], 4000)
+
+    def test_wiki_checks_full_registered_ancestry(self):
+        m.CONFIG['wiki'] = {'space_id': 'space', 'root_node': 'home'}
+        m.CONFIG['documents'].update({
+            'home': {'token': 'home_doc', 'wiki_node': 'home', 'wiki_parent': 'space_root'},
+            'overview': {'token': 'overview_doc', 'wiki_node': 'leaf', 'wiki_parent': 'home'}})
+        leaf = {'space_id': 'space', 'node_token': 'leaf', 'obj_token': 'overview_doc',
+                'obj_type': 'docx', 'node_type': 'origin', 'parent_node_token': 'home'}
+        home = dict(leaf, node_token='home', obj_token='home_doc', parent_node_token='space_root')
+        with patch.object(m, 'cli', side_effect=[{'data': leaf}, {'data': home}]) as cli:
+            m.check_location('overview')
+            self.assertEqual(cli.call_count, 2)
+        for change in [{'parent_node_token': 'outside'}, {'space_id': 'other'},
+                       {'node_type': 'shortcut'}, {'obj_token': 'other_doc'}]:
+            with self.subTest(change=change), patch.object(m, 'cli', return_value={'data': dict(leaf, **change)}):
+                with self.assertRaises(ValueError):
+                    m.check_location('overview')
+
+    def test_wiki_read_checks_location_before_fetching_content(self):
+        m.CONFIG['documents']['project']['wiki_node'] = 'node'
+        with patch.object(m, 'check_location', side_effect=ValueError('moved')), patch.object(m, 'cli') as cli:
+            with self.assertRaises(ValueError):
+                m.fetch('project')
+            cli.assert_not_called()
+
+    def test_wiki_cycle_fails(self):
+        m.CONFIG['wiki'] = {'space_id': 'space', 'root_node': 'root'}
+        m.CONFIG['documents']['project'].update(wiki_node='cycle', wiki_parent='cycle')
+        node = {'space_id': 'space', 'node_token': 'cycle', 'obj_token': 'doc',
+                'obj_type': 'docx', 'node_type': 'origin', 'parent_node_token': 'cycle'}
+        with patch.object(m, 'cli', return_value={'data': node}):
+            with self.assertRaises(ValueError):
+                m.check_location('project')
+
     def test_install_preserves_guidance_and_is_repeatable(self):
         home = self.path / 'codex'
         home.mkdir()

@@ -107,6 +107,8 @@ def signature(element):
 
 
 def fetch(key, **scope):
+    if CONFIG['documents'][key].get('wiki_node'):
+        check_location(key)
     args = ['docs', '+fetch', '--doc', CONFIG['documents'][key]['token'], '--detail', 'full']
     for name, value in scope.items():
         args += ['--' + name.replace('_', '-'), str(value)]
@@ -159,6 +161,26 @@ def list_folder(folder):
 
 def check_location(key):
     doc = CONFIG['documents'][key]
+    if doc.get('wiki_node'):
+        wiki = CONFIG['wiki']
+        registered = {d['wiki_node']: d for d in CONFIG['documents'].values() if d.get('wiki_node')}
+        node, visited = doc['wiki_node'], set()
+        while node:
+            if node in visited or node not in registered:
+                raise ValueError('Wiki 目录链未登记或存在循环。')
+            visited.add(node)
+            expected = registered[node]
+            actual = cli('wiki', '+node-get', '--node-token', node,
+                         '--space-id', wiki['space_id'])['data']
+            if (actual['space_id'] != wiki['space_id'] or actual['node_token'] != node
+                    or actual['obj_token'] != expected['token'] or actual['obj_type'] != 'docx'
+                    or actual['node_type'] != 'origin'
+                    or actual.get('parent_node_token', '') != expected['wiki_parent']):
+                raise ValueError('Wiki 节点归属、类型或内容对象已变化；先核对资源登记。')
+            if node == wiki['root_node']:
+                return
+            node = expected['wiki_parent']
+        raise ValueError('Wiki 节点不属于已登记的入口子树。')
     chain = []
     parent = doc['parent']
     while parent != CONFIG['root']:
@@ -171,6 +193,38 @@ def check_location(key):
         match = next((item for item in list_folder(parent) if item['token'] == token), None)
         if not match or match['type'] != kind or match['parent_token'] != parent:
             raise ValueError('目标目录归属已变化；先核对远程入口和资源登记。')
+
+
+def begin_context(state, project=None, topic=None):
+    selected = (CONFIG['projects'][project] if project else
+                CONFIG.get('topics', {})[topic] if topic else 'navigation')
+    budget = CONFIG.get('startup_budget', 4000)
+    if not isinstance(budget, int) or budget < 1:
+        raise ValueError('startup_budget 必须为正整数。')
+    docs, remaining = [], budget
+    for key in dict.fromkeys(['core', selected]):
+        doc = read(key, state, 'full', budget=remaining)
+        docs.append(doc)
+        remaining -= len(doc['content'])
+    return {'documents': docs, 'content_chars': budget - remaining, 'budget': budget}
+
+
+def browse(key, page_token=None):
+    doc = CONFIG['documents'][key]
+    if not doc.get('wiki_node'):
+        raise ValueError('browse 需要已登记的 Wiki 页面。')
+    check_location(key)
+    command = ['wiki', '+node-list', '--space-id', CONFIG['wiki']['space_id'],
+               '--parent-node-token', doc['wiki_node'], '--page-size', '5']
+    if page_token:
+        command += ['--page-token', page_token]
+    data = cli(*command)['data']
+    keys = {d['wiki_node']: k for k, d in CONFIG['documents'].items() if d.get('wiki_node')}
+    return {'parent': key, 'nodes': [
+        {'key': keys.get(n['node_token']), 'title': n['title'], 'node_token': n['node_token'],
+         'type': n['obj_type'], 'node_type': n['node_type'], 'has_child': n.get('has_child', False)}
+        for n in data.get('nodes', [])], 'has_more': data.get('has_more', False),
+        'page_token': data.get('page_token')}
 
 
 def replace(args, state):
@@ -251,7 +305,12 @@ def main():
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('doctor')
     begin = sub.add_parser('begin')
-    begin.add_argument('--project')
+    selection = begin.add_mutually_exclusive_group()
+    selection.add_argument('--project')
+    selection.add_argument('--topic')
+    browser = sub.add_parser('browse')
+    browser.add_argument('key', nargs='?', default='navigation')
+    browser.add_argument('--page-token')
     reader = sub.add_parser('read')
     reader.add_argument('key')
     modes = reader.add_mutually_exclusive_group()
@@ -262,6 +321,7 @@ def main():
     search.add_argument('query')
     search.add_argument('--only-title', action='store_true')
     search.add_argument('--page-token')
+    search.add_argument('--source', choices=['wiki', 'memory'])
     writer = sub.add_parser('replace')
     writer.add_argument('key')
     for name in ('snapshot', 'block-id', 'xml', 'source'):
@@ -283,16 +343,12 @@ def main():
         raise ValueError('Unknown document key. Register it in the local configuration after checking its folder.')
     if getattr(args, 'project', None) and args.project not in CONFIG['projects']:
         raise ValueError('Unknown project. Read the remote navigation document and register the project.')
+    if getattr(args, 'topic', None) and args.topic not in CONFIG.get('topics', {}):
+        raise ValueError('Unknown topic. Read the Wiki learning index and register the topic.')
     if args.command == 'begin':
-        keys = ['core', 'navigation']
-        if args.project:
-            keys.append(CONFIG['projects'][args.project])
-        docs, remaining = [], 12000
-        for key in keys:
-            doc = read(key, args.state_dir, 'full', budget=remaining)
-            docs.append(doc)
-            remaining -= len(doc['content'])
-        output = {'documents': docs, 'content_chars': 12000 - remaining}
+        output = begin_context(args.state_dir, args.project, args.topic)
+    elif args.command == 'browse':
+        output = browse(args.key, args.page_token)
     elif args.command == 'read':
         mode, value = ('full', None) if args.full else ('outline', None)
         if args.section:
@@ -303,8 +359,12 @@ def main():
     elif args.command == 'search':
         if not args.query.strip() or len(args.query) > 30:
             raise ValueError('搜索使用 1–30 个字符的实体或主题词。')
-        command = ['drive', '+search', '--query', args.query, '--folder-tokens', CONFIG['root'],
-                   '--doc-types', 'docx', '--page-size', '5']
+        source = args.source or ('wiki' if CONFIG.get('wiki') else 'memory')
+        if source == 'wiki' and not CONFIG.get('wiki'):
+            raise ValueError('Wiki 尚未登记。')
+        scope = (['--space-ids', CONFIG['wiki']['space_id']] if source == 'wiki'
+                 else ['--folder-tokens', CONFIG['root'], '--doc-types', 'docx'])
+        command = ['drive', '+search', '--query', args.query, *scope, '--page-size', '5']
         if args.only_title:
             command.append('--only-title')
         if args.page_token:
@@ -312,7 +372,7 @@ def main():
         response = cli(*command)
         save(args.state_dir / 'search' / f'{uuid.uuid4().hex}.json', response)
         data = response['data']
-        output = {'results': [{'title': re.sub(r'</?h[b]?>', '', r['title_highlighted']),
+        output = {'source': source, 'results': [{'title': re.sub(r'</?h[b]?>', '', r['title_highlighted']),
                     'summary': r.get('summary_highlighted', ''),
                     'token': r['result_meta']['token'], 'url': r['result_meta']['url']}
                     for r in data.get('results', [])],

@@ -56,20 +56,20 @@ PY
 应用绑定完成后，新机器通过原飞书账号完成用户授权：
 
 ```bash
-lark-cli --profile memory auth login --domain docs,drive --no-wait --json
+lark-cli --profile memory auth login --domain docs,drive,wiki --no-wait --json
 ```
 
 按官方技能的分步流程先展示授权链接和二维码，用户完成后用本次返回的 `device_code` 执行 `lark-cli --profile memory auth login --device-code <DEVICE_CODE>`，再运行 `lark-cli --profile memory auth status --json --verify`。已有有效登录时直接验证。每台机器独立完成登录；访问令牌和刷新令牌由该机器的 CLI 管理。
 
-初版只使用文档与云空间能力。验证用户身份的文档读写、目录清单和搜索权限；其中搜索使用 `search:docs:read`，目录读取使用 `space:document:retrieve`。已有应用需要补权限时按 CLI 返回的缺失项处理。密钥和令牌由 CLI 凭据存储管理。
+Wiki 分层入口使用文档、云空间和知识库能力。验证用户身份的文档读写、目录清单和搜索权限；其中搜索使用 `search:docs:read`，目录读取使用 `space:document:retrieve`。已有应用需要补权限时按 CLI 返回的缺失项处理。密钥和令牌由 CLI 凭据存储管理。
 
 ## 自动发现与连接记忆空间
 
 授权完成后由 Agent 执行：
 
 1. 有用户指定的配置、默认配置或入口时，核对后连接。资源配置的 `profile` 使用本机实际选定值，导航中记录的旧机器 profile 和 CLI 路径按环境信息处理。
-2. 缺少资源配置时，读取官方 `lark-drive` 搜索参考，以已授权用户身份查找自己拥有的“记忆系统入口”，例如 `lark-cli --profile memory drive +search --as user --query '记忆系统入口' --only-title --mine --doc-types docx --page-size 5`。保持查询条件检查分页，最多 3 页，去除标题高亮后严格匹配；检索未完成时保留未决状态。
-3. 读取候选入口，取得独立根目录和核心准则链接，只列举验证这些资源及当前项目所需的目录。核对真实目录链、导航和核心准则；完整检索后只有一个有效候选时自动连接，多个候选时请用户选择。
+2. 缺少资源配置时，先按标题搜索自己拥有的“知识与协作入口”（--only-title --mine），每页 5 条、最多 3 页；解析候选节点与空间，读取首页和核心摘要，按 [Wiki 分层入口](wiki-navigation.md) 重建必要配置。多个有效入口时请用户选择。没有 Wiki 候选时，读取官方 `lark-drive` 搜索参考，以已授权用户身份查找自己拥有的“记忆系统入口”，例如 `lark-cli --profile memory drive +search --as user --query '记忆系统入口' --only-title --mine --doc-types docx --page-size 5`。保持查询条件检查分页，最多 3 页，去除标题高亮后严格匹配；检索未完成时保留未决状态。
+3. 读取原 Drive 候选入口；若其中指向新的 Wiki 首页，先解析并核验该入口。取得独立根目录和核心准则链接，只列举验证这些资源及当前项目所需的目录。核对真实目录链、导航和核心准则；完整检索后只有一个有效候选时自动连接，多个候选时请用户选择。
 4. 没有入口候选时，再按标题查找自己拥有的“Agent记忆系统”文件夹，并检查其导航与核心准则。首次建立任务中，检索正常且没有有效空间时按下一节创建；已知迁移任务仍未定位到原空间时，请用户提供入口链接。认证、权限错误或未完成的分页先处理相应问题。
 5. 按 [配置模板](config.example.json) 生成 `~/.config/feishu-memory/config.json`，登记实际 profile、根目录、必要目录链、`navigation`、`core` 和当前项目入口；其他内容按需登记。运行 `begin`、范围搜索和章节读取，验证后继续原任务。
 
@@ -77,9 +77,9 @@ lark-cli --profile memory auth login --domain docs,drive --no-wait --json
 
 ## 创建新的记忆空间
 
-用户没有已有空间时，使用官方 `lark-drive` 和 `lark-doc` 工作流创建独立根目录，例如“Agent记忆系统”，在其中建立导航、协作准则、项目和系统维护目录。
+用户没有已有空间时，按 [Wiki 分层入口](wiki-navigation.md) 建立私有 Wiki、短首页与核心摘要，以及按需扩展的分类索引。另以独立 Drive 根目录保存详细记忆和维护产物，记忆正文通过 Wiki 索引定位。现有 Drive 结构可继续使用，启用 Wiki 时创建索引与概述并保留正文位置。
 
-创建两份短文档：“记忆系统入口”保存根目录、核心准则及各类入口和用途；“核心协作准则”保存用户已经明确表达的要求及来源。稳定标题用于新机器自动发现。尚无偏好时记录待建立状态。项目页按实际任务创建，保存目标、状态、决定、下一步和证据。结构可参考 [文档骨架](templates.md)。
+Wiki 首页使用稳定标题“知识与协作入口”，核心摘要保存已经确认的常用规则；完整偏好与项目状态按需链接。原 Drive“记忆系统入口”可作为旧机器接续的定位页，指向 Wiki 首页。尚无偏好时记录待建立状态；概述与详细状态分别维护，结构见 [Wiki 分层入口](wiki-navigation.md)。
 
 将 [配置模板](config.example.json) 中的字段替换为 CLI 返回的资源标识和 URL，保存到用户配置目录。`folders` 记录目录到父目录的链，`documents` 登记文档及直接父目录，`projects` 映射项目短名。创建和登记后用目录清单与文档回读核对归属。
 

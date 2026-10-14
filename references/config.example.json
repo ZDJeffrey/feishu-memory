@@ -2,14 +2,51 @@
   "profile": "memory",
   "root": "ROOT_FOLDER_TOKEN",
   "folders": {
-    "NAV_FOLDER_TOKEN": {"name": "00导航", "parent": "ROOT_FOLDER_TOKEN"},
-    "CORE_FOLDER_TOKEN": {"name": "01协作准则", "parent": "ROOT_FOLDER_TOKEN"},
-    "PROJECT_FOLDER_TOKEN": {"name": "示例项目", "parent": "ROOT_FOLDER_TOKEN"}
+    "NAV_FOLDER_TOKEN": {
+      "name": "00导航",
+      "parent": "ROOT_FOLDER_TOKEN"
+    },
+    "CORE_FOLDER_TOKEN": {
+      "name": "01协作准则",
+      "parent": "ROOT_FOLDER_TOKEN"
+    },
+    "PROJECT_FOLDER_TOKEN": {
+      "name": "示例项目",
+      "parent": "ROOT_FOLDER_TOKEN"
+    }
   },
   "documents": {
-    "navigation": {"token": "NAV_DOC_TOKEN", "url": "https://TENANT.feishu.cn/docx/NAV_DOC_TOKEN", "parent": "NAV_FOLDER_TOKEN"},
-    "core": {"token": "CORE_DOC_TOKEN", "url": "https://TENANT.feishu.cn/docx/CORE_DOC_TOKEN", "parent": "CORE_FOLDER_TOKEN"},
-    "example": {"token": "PROJECT_DOC_TOKEN", "url": "https://TENANT.feishu.cn/docx/PROJECT_DOC_TOKEN", "parent": "PROJECT_FOLDER_TOKEN"}
+    "navigation": {
+      "token": "HOME_DOC_TOKEN",
+      "url": "https://TENANT.feishu.cn/wiki/HOME_NODE_TOKEN",
+      "wiki_node": "HOME_NODE_TOKEN",
+      "wiki_parent": ""
+    },
+    "core": {
+      "token": "CORE_SUMMARY_DOC_TOKEN",
+      "url": "https://TENANT.feishu.cn/wiki/CORE_NODE_TOKEN",
+      "wiki_node": "CORE_NODE_TOKEN",
+      "wiki_parent": "HOME_NODE_TOKEN"
+    },
+    "example": {
+      "token": "PROJECT_OVERVIEW_DOC_TOKEN",
+      "url": "https://TENANT.feishu.cn/wiki/PROJECT_NODE_TOKEN",
+      "wiki_node": "PROJECT_NODE_TOKEN",
+      "wiki_parent": "HOME_NODE_TOKEN"
+    },
+    "core_detail": {
+      "token": "CORE_DOC_TOKEN",
+      "url": "https://TENANT.feishu.cn/docx/CORE_DOC_TOKEN",
+      "parent": "CORE_FOLDER_TOKEN"
+    }
   },
-  "projects": {"example-project": "example"}
+  "projects": {
+    "example-project": "example"
+  },
+  "wiki": {
+    "space_id": "WIKI_SPACE_ID",
+    "root_node": "HOME_NODE_TOKEN"
+  },
+  "startup_budget": 4000,
+  "topics": {}
 }

@@ -43,11 +43,11 @@ python3 scripts/install.py --activate
 
 ## 日常流程
 
-`begin` 读取核心准则和导航，`begin --project PROJECT` 加载项目状态；`search` 在记忆根目录检索，`read` 按章节或关键词展开。`replace` 校验目录链和读取版本，更新完整文本块并回读，回执保存来源、前后内容和版本。
+Wiki 作为用户与 Agent 共用入口。`begin` 读取核心摘要与首页；`begin --project PROJECT` 或 `begin --topic TOPIC` 直接读取对应概述。`browse KEY` 查看当前层节点，`search` 在已登记 Wiki 空间检索，`--source memory` 查询原记忆目录；`read` 按章节展开。`replace` 校验 Wiki 节点归属或 Drive 目录链及读取版本，写后回读。
 
-默认每页最多 5 个搜索结果、每次最多 12000 个正文字符。内容相同跳过写入，版本冲突交回 Agent 重新读取并合并。详见 [读写操作](references/operations.md)。
+默认启动正文预算 4000 字符，普通读取上限 12000 字符；每页最多 5 个搜索或节点结果。内容相同跳过写入，版本冲突交回 Agent 重新读取并合并。详见 [读写操作](references/operations.md)。
 
-项目、论文和学习资料可存放在用户维护的外部目录。通过记忆中的资源索引登记入口、读取范围和可写位置，Agent 按需调用官方飞书技能；具体约定见 [外部资源接入](references/external-resources.md)。当前执行脚本负责记忆根目录，外部范围由 Agent 按索引核对。
+项目、论文和学习资料可存放在用户维护的外部目录。通过记忆中的资源索引登记入口、读取范围和可写位置，Agent 按需调用官方飞书技能；具体约定见 [外部资源接入](references/external-resources.md)。脚本核对已登记 Wiki 与记忆根目录，外部范围由 Agent 按索引核对。
 
 运行状态统一保存到 `~/.local/state/feishu-memory/`，包括快照、搜索缓存和写回回执；各会话共用，可通过 `--state-dir PATH` 指定其他位置。
 
