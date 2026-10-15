@@ -1,46 +1,46 @@
 # 读写操作
 
-可从任意工作目录运行技能内的 `scripts/memory.py`，路径按实际安装位置解析。配置通过 `--config PATH` 或 `FEISHU_MEMORY_CONFIG` 指定，默认 `~/.config/feishu-memory/config.json`。快照、搜索缓存和回执统一保存到 `~/.local/state/feishu-memory/`，各会话共用；可用 `--state-dir PATH` 显式指定其他位置，路径支持 `~` 展开。
+Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 URL 取自本机配置 `~/.config/feishu-memory/config.json`。读写记忆使用用户身份：`--profile PROFILE` 放在子命令之前，`--as user` 放在子命令之后，例如 `lark-cli --profile memory docs +fetch --doc URL --as user`；下表省略这两项。参数细节以官方 `lark-doc`、`lark-wiki`、`lark-drive`、`lark-whiteboard` 技能及 `--help` 为准；`--doc` 接受 Docx 或 Wiki 的 URL/token。
 
-```text
-python3 SKILL_DIR/scripts/memory.py doctor
-python3 SKILL_DIR/scripts/memory.py begin
-python3 SKILL_DIR/scripts/memory.py begin --project PROJECT
-python3 SKILL_DIR/scripts/memory.py begin --topic TOPIC
-python3 SKILL_DIR/scripts/memory.py browse navigation
-python3 SKILL_DIR/scripts/memory.py search '项目名 主题词'
-python3 SKILL_DIR/scripts/memory.py read KEY --section '章节名'
-```
+## 读取
 
-`read KEY` 返回目录，`--section` 精确匹配标题，`--keyword` 按关键词读取，`--full` 用于确需通读的短文档。KEY 来自配置中的 `documents`。返回 `snapshot`、`revision` 和当前 block ID；`outline_only=true` 时按目录继续缩小范围。
+| 目的 | 命令 |
+| --- | --- |
+| 启动上下文 | `docs +fetch --doc CORE_URL`；`docs +fetch --doc HOME_URL`（已知项目或主题时以对应概述替换首页） |
+| 列出当前层节点 | `wiki +node-list --space-id SPACE_ID --parent-node-token NODE --page-size 5` |
+| 在记忆空间检索 | `drive +search --query '主题词' --space-ids SPACE_ID --page-size 5`；按标题定位加 `--only-title` |
+| 在资料目录检索 | `drive +search --query '主题词' --folder-tokens FOLDER --page-size 5`，FOLDER 取自概述中的资源索引 |
+| 长文档先看目录 | `docs +fetch --doc DOC --scope outline --max-depth 2` |
+| 读取一节 | `docs +fetch --doc DOC --scope section --start-block-id HEADING_ID --detail with-ids` |
+| 按关键词读取 | `docs +fetch --doc DOC --scope keyword --keyword 'a\|b' --context-after 1 --detail with-ids` |
+| 查看文件夹 | `drive files list --params '{"folder_token":"FOLDER","page_size":50}'` |
 
-`begin` 默认只读核心摘要与首页，指定项目或主题时读取对应概述；startup_budget 默认 4000 字符，包含 XML。`browse KEY` 每页列出 5 个直接子节点，只返回元数据；用 --page-token 继续当前层。
-
-`search` 默认检索已登记 Wiki 空间；--resource KEY 选择 drive_roots 中的资料目录，并验证根目录归属。每页最多 5 条，保留 source、has_more 与 page_token；翻页沿用同一查询和来源。新页面可能尚未进入搜索索引，可先用 browse 或登记键读取。外部资料按 [外部资源接入](external-resources.md) 的范围使用对应官方技能。
+启动正文合计约 4000 字符，常规展开单次约 12000 字符；超出时先读目录再选章节。搜索每页最多 5 条，翻页沿用同一查询和范围；新页面可能尚未进入索引，可先用节点列表定位。不要在记忆空间之外做账号全局搜索。Wiki 正文的 `--doc-types` 是 `docx`，不要用 `wiki` 筛选。
 
 ## 更新
 
-读取目标章节，把完整的新 XML 文本块以唯一文件名保存到状态目录的 `drafts/` 下，并提供真实来源位置：
+每次写入前用 `--detail with-ids` 读取目标范围，记下返回的 `revision_id`，写入时以 `--revision-id` 传回；返回版本冲突时重新读取并合并，不覆盖他人修改。每次写入后旧 block ID 视为失效，基于新的读取结果继续。
 
-```text
-python3 SKILL_DIR/scripts/memory.py replace KEY --snapshot SNAPSHOT --block-id BLOCK --xml FILE --source SOURCE
-```
+| 更新类型 | 何时使用 | 命令 |
+| --- | --- | --- |
+| 替换 | 结论、状态或表述已变化，包括合并多段、改写整节 | `docs +update --command block_replace --block-id ID` 或 `--start-block-id A --end-block-id B` |
+| 删除 | 内容已被取代、重复或失去保留价值 | `docs +update --command block_delete`，参数同上 |
+| 新增 | 确属新主题或新章节 | `docs +update --command block_insert_after --block-id ANCHOR` |
+| 移动 | 调整章节顺序或归属 | `docs +update --command block_move_after --block-id ANCHOR --src-block-ids IDS` |
+| 行内修正 | 术语、数字等短文本 | `docs +update --command str_replace --pattern '旧' --content '新'` |
 
-`--dry-run` 生成预览回执。Wiki 文档读写核对已登记空间、节点父链和内容对象；Drive 文档读取和写入核对登记的资料根及目录链，写入要求根目录 access=write。执行器支持同类型 `p`、`li`、`h1`–`h4` 的完整替换；复杂资源、评论、表格和新章节使用官方 `lark-doc` 工作流。写入回执保存来源、前后内容、基准版本、结果和回读内容。
+先选替换与删除：同一主题只保留一份当前表述，被取代的内容直接改写或删去，不在原文旁追加修订说明，也不按“第 N 轮”“本轮”逐次追加章节。比较、映射与字段用表格；流程、架构、时序和依赖用画板，在 XML 中写 `<whiteboard type="mermaid">…</whiteboard>`，复杂图按官方 `lark-doc` 画板流程处理。默认 XML，用户提供的 Markdown 可用 `--doc-format markdown`。
 
-| 结果 | 后续动作 |
-| --- | --- |
-| `verified` | 更新已回读，继续下一项或交付 |
-| `unchanged` | 正文相同，已跳过写入 |
-| `conflict`，退出码 2 | 重新读取并合并当前内容 |
-| `write_requested` / `readback_required` / `review_required` | 核对回执和远程内容，再决定后续操作 |
+`overwrite` 会重建正文与 block ID，可能丢失评论和画板等资源，仅在用户确认整篇重建时使用。写入后检查返回的 `result` 与 `warnings`，再按影响范围回读核对文字、结构、链接与资源块。
 
-本机进程锁串行协调该执行器，CLI 接收读取时的基准版本。跨机器或绕过执行器的并发由统一写入方协调。凭据保存在 CLI 凭据存储中。
+## 回滚
+
+1. `docs +history-list --doc DOC --page-size 20` 列出历史，按 `revision_id` 或 `edit_time` 选定目标记录。
+2. `docs +history-revert --doc DOC --history-version-id ID`；返回 `running` 时用 `+history-revert-status` 查询，只有 `done` 表示成功。
+3. 回读核对。大幅重组前记下当前 `revision_id`，便于定位回滚点。
 
 ## 内容与项目登记
 
 项目页保存目标、当前状态、关键决定、下一步和证据入口。长期条目含稳定 ID、类型、范围、来源、日期、状态和版本；替代关系放在元数据中，正文呈现当前结论。用户明确反馈、实测、来源声明与推断分别标明。
 
-新增项目记忆先在导航和限定目录搜索中检查现有条目，再通过官方技能创建项目概述、按需的详细状态页及目录；面向用户的项目正文按外部资源索引维护。回读并核对位置后，更新远程导航与本地配置：`drive_roots` 保存平级资料根及 read/write 级别，`folders` 保存必要的中间目录链，Drive `documents` 保存键名、token、url、parent、drive_root，`projects` 将项目短名映射到概述键名，`topics` 同样映射学习主题；详细状态页独立登记。Wiki 登记见 [分层入口](wiki-navigation.md)。最后从其他工作目录运行 `begin --project PROJECT` 验证接续。
-
-资源配置可根据远程导航与目录清单重建。快照和搜索响应是缓存，完成任务后可清理；保留支持重要结论的写入回执。用户配置、缓存和回执独立于源码仓库。
+新增项目先在项目索引与限定空间搜索中检查已有条目，再通过官方技能创建 Wiki 概述、按需的详细状态页及平级资料文件夹。概述的资源索引登记资料入口、用途、读取范围与可写位置；回读核对后更新项目索引页。学习主题同样处理。资源位置以远程索引为准，本机配置不登记单篇文档。

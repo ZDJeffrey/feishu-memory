@@ -27,4 +27,4 @@
 
 ## 执行边界
 
-`memory.py` 核对 Wiki 节点父链与内容对象；平级 Drive 文件夹通过 drive_roots 登记 token、实际 parent、name 和 access（read 或 write），Docx 条目用 drive_root 绑定目录键。读取、搜索和写回核对归属，写回要求 write；根目录移动后先更新用户确认的资源登记。平级目录分别登记，避免将云空间根作为共同授权范围。表格、画板、幻灯片及直接调用官方 CLI 的操作仍由 Agent 按索引核验，实际访问权限由 CLI 身份、OAuth 和飞书资源权限决定。
+Agent 直接使用官方 CLI 技能读写。CLI 的用户身份能访问账号下的全部文档，因此范围约束由 Agent 执行：读写前对照概述中的资源索引，确认目标位于登记目录或其后代（用 `drive files list` 或 `wiki +node-get` 核对实际父级），检索使用 `--folder-tokens` 或 `--space-ids` 限定范围。只读登记的目录不写入；平级目录分别登记，避免将云空间根作为共同授权范围。删除、移动、权限变更与扩大范围按 SKILL.md 的确认规则处理；实际访问权限由 CLI 身份、OAuth 和飞书资源权限决定。

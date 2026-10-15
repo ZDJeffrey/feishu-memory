@@ -1,16 +1,16 @@
 # Feishu Memory
 
-为 Codex 和具有本机工具的桌面对话提供可迁移的飞书远程记忆：开始任务时按需取上下文，完成任务时更新项目状态与长期条目。
+为具有本机工具的 Agent（如 Claude Code、Codex）提供可迁移的飞书远程记忆：开始任务时按需取上下文，完成任务时更新项目状态与长期条目。Agent 直接调用飞书官方 [lark-cli](https://github.com/larksuite/cli) 及其配套技能读写，本技能约定记忆的组织、读取范围与更新方式。
 
 ## 安装
 
-将仓库链接交给 Codex 并要求安装，或使用技能安装器：
+使用技能安装器（`--agent` 可指定目标 Agent，省略时按安装器检测结果安装）：
 
 ```bash
-npx skills add ZDJeffrey/feishu-memory --skill feishu-memory --agent codex --global
+npx skills add ZDJeffrey/feishu-memory --skill feishu-memory --global
 ```
 
-也可从源码安装：
+也可从源码安装到 Codex 技能目录并登记全局入口：
 
 ```bash
 git clone https://github.com/ZDJeffrey/feishu-memory.git
@@ -18,9 +18,9 @@ cd feishu-memory
 python3 scripts/install.py --activate
 ```
 
-仓库安装器将技能放入 `${CODEX_HOME:-~/.codex}/skills/feishu-memory`；`--activate` 同时登记全局调用入口并保留已有指令。Windows 可使用 `py -3` 执行脚本。
+`install.py` 面向通过 `AGENTS.md` 发现全局指令的 Agent，将技能放入 `${CODEX_HOME:-~/.codex}/skills/feishu-memory`，`--activate` 同时登记全局调用入口并保留已有指令。原生按描述发现技能的 Agent 安装后即可使用。Windows 可使用 `py -3` 执行脚本。
 
-新开对话后直接给出任务，例如：`$feishu-memory 继续论文项目，整理当前进展和下一步。`
+新开对话后以技能名加任务描述开始，例如 `$feishu-memory 继续论文项目，整理当前进展和下一步。`（Codex）或 `/feishu-memory …`（Claude Code）。
 
 ## 首次使用
 
@@ -33,37 +33,31 @@ python3 scripts/install.py --activate
 | 用户 | 在本机终端运行命令，隐藏输入 App Secret。 |
 | Agent | 核对应用配置，发起用户授权并展示链接和二维码。 |
 | 用户 | 在浏览器完成授权。 |
-| Agent | 完成登录，查找并连接已有记忆空间，首次建立时创建独立空间；生成本机配置、登记入口、验证并继续原任务。 |
+| Agent | 完成登录，查找并连接已有记忆空间，首次建立时创建独立空间；写入本机配置、登记入口、验证并继续原任务。 |
 
-已有配置与有效授权直接复用。profile、目录与资源配置由 Agent 管理；只有多个空间候选、入口无法定位或管理员审批等情况需要用户补充处理。
+已有配置与有效授权直接复用。只有多个空间候选、入口无法定位或管理员审批等情况需要用户补充处理。[完整设置流程](references/setup.md) 随技能提供。
 
-首次调用会登记全局记忆入口，准备就绪后继续原任务，结束时维护项目状态。[完整设置流程](references/setup.md) 随技能提供。通过 `npx` 安装时，入口登记使用 `scripts/install.py --activate-only` 保留原安装位置；用户可指定仅在本次任务使用。
-
-用户配置默认保存在 `~/.config/feishu-memory/config.json`，结构见 [配置模板](references/config.example.json)。认证凭据由飞书 CLI 管理。技能源码独立于账号、文档标识和机器路径。
+本机配置默认保存在 `~/.config/feishu-memory/config.json`，只记录 CLI profile、Wiki 空间与首页、核心摘要入口，结构见 [配置模板](references/config.example.json)；可用 `FEISHU_MEMORY_CONFIG` 指定其他位置。认证凭据由飞书 CLI 管理。技能源码独立于账号、文档标识和机器路径。
 
 ## 日常流程
 
-Wiki 作为用户与 Agent 共用入口。`begin` 读取核心摘要与首页；`begin --project PROJECT` 或 `begin --topic TOPIC` 直接读取对应概述。`browse KEY` 查看当前层节点，`search` 在已登记 Wiki 空间检索，`--resource RESOURCE` 查询已登记项目资料目录；`read` 按章节展开。`replace` 校验 Wiki 节点归属或 Drive 目录链及读取版本，写后回读。
+Wiki 作为用户与 Agent 共用入口。开始任务时读取核心摘要与首页，已知项目或主题时直接读取对应概述；再按需逐层列出节点、在记忆空间内限定检索、按章节展开。启动正文约 4000 字符，常规展开单次约 12000 字符，每轮最多检查 5 个候选。
 
-默认启动正文预算 4000 字符，普通读取上限 12000 字符；每页最多 5 个搜索或节点结果。内容相同跳过写入，版本冲突交回 Agent 重新读取并合并。详见 [读写操作](references/operations.md)。
+更新时 Agent 按官方 `lark-doc` 流程读取目标、携带版本号写入并回读：被新结论取代的内容直接替换或删除，比较与映射用表格，流程与架构用画板；历史由飞书文档版本记录承载，可用 `+history-revert` 回滚。删除、移动、权限变更、整篇覆盖和扩大读写范围前先取得用户确认。命令见 [读写操作](references/operations.md)。
 
-项目、论文和学习资料可存放在用户维护的外部目录。通过记忆中的资源索引登记入口、读取范围和可写位置，Agent 按需调用官方飞书技能；具体约定见 [外部资源接入](references/external-resources.md)。通用记忆正文保存在 Wiki；项目资料使用平级文件夹，可同时保存记录、报告和汇报产物。脚本核对 Wiki 节点及登记 Drive 根目录、目录链与读写级别，其他官方工具操作由 Agent 按索引核对。Wiki 首页是统一入口。
-
-运行状态统一保存到 `~/.local/state/feishu-memory/`，包括快照、搜索缓存和写回回执；各会话共用，可通过 `--state-dir PATH` 指定其他位置。
+项目、论文和学习资料可存放在用户维护的外部目录。通过概述中的资源索引登记入口、读取范围和可写位置，Agent 按需调用官方飞书技能；具体约定见 [外部资源接入](references/external-resources.md)。通用记忆正文保存在 Wiki；项目资料使用平级文件夹，可同时保存记录、报告和汇报产物。
 
 ## 换机器
 
-安装并调用本技能，应用尚未绑定时提供原 App ID，按 Agent 给出的命令完成终端配置和浏览器授权。Agent 自动搜索“知识与协作入口”、核对 Wiki 空间并生成本机资源配置。CLI 已就绪时直接进入空间发现；已有配置文件和入口链接可作为可选的定位方式。具体操作见[自动发现与连接记忆空间](references/setup.md#自动发现与连接记忆空间)。
+安装并调用本技能，应用尚未绑定时提供原 App ID，按 Agent 给出的命令完成终端配置和浏览器授权。Agent 自动搜索“知识与协作入口”、核对 Wiki 空间并写入本机配置。具体操作见[自动发现与连接记忆空间](references/setup.md#自动发现与连接记忆空间)。
 
-资源配置保存本机实际 profile 和远程记忆位置，应用凭据与用户令牌由各机器的 CLI 独立管理。CLI 可通过 PATH、`FEISHU_MEMORY_CLI` 或配置中的可选 `cli` 字段定位；资源配置可通过 `FEISHU_MEMORY_CONFIG` 或 `--config` 指定。
-
-执行器仅使用 Python 3.9+ 标准库。当前实机验证平台为 macOS；Linux 和 Windows 分支需要对应平台验证。本机锁协调本机写入，多机器同时写同一文档时使用统一写入方。
+本机配置保存实际 profile 和 Wiki 入口，应用凭据与用户令牌由各机器的 CLI 独立管理。多机器同时写同一文档时，以 `--revision-id` 检测冲突并重新读取合并。
 
 ## 验证
 
 ```bash
 python3 scripts/check.py
-python3 scripts/memory.py doctor
+lark-cli --profile memory auth status --json --verify
 ```
 
-`check.py` 检查配置独立性、预算、目录约束、版本冲突和重复更新等行为；`doctor` 检查当前用户的运行环境。实际读写验证在用户授权的 Wiki 与资料目录中执行，结果保留在本机。
+`check.py` 检查全局入口登记的保留与幂等行为；授权检查确认当前机器的 CLI 登录状态。实际读写在用户授权的 Wiki 与资料目录中执行。
