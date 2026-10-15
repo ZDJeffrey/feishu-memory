@@ -29,9 +29,27 @@ Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 
 | 移动 | 调整章节顺序或归属 | `docs +update --command block_move_after --block-id ANCHOR --src-block-ids IDS` |
 | 行内修正 | 术语、数字等短文本 | `docs +update --command str_replace --pattern '旧' --content '新'` |
 
-先选替换与删除：同一主题只保留一份当前表述，被取代的内容直接改写或删去，不在原文旁追加修订说明，也不按“第 N 轮”“本轮”逐次追加章节。比较、映射与字段用表格；流程、架构、时序和依赖用画板，在 XML 中写 `<whiteboard type="mermaid">…</whiteboard>`，复杂图按官方 `lark-doc` 画板流程处理。默认 XML，用户提供的 Markdown 可用 `--doc-format markdown`。多行内容写入临时文件后用 `--content - < FILE` 经标准输入传入；CLI 拒绝读取位于 `/root` 等受保护目录下的 `@file` 路径。
+先选替换与删除：同一主题只保留一份当前表述，被取代的内容直接改写或删去，不在原文旁追加修订说明，也不按“第 N 轮”“本轮”逐次追加章节。比较、映射与字段用表格；流程、架构、时序和依赖用画板，在 XML 中写 `<whiteboard type="mermaid">…</whiteboard>`，复杂图按官方 `lark-doc` 画板流程处理。写法与飞书格式见记忆空间中的写作规范（存在时）。
 
 `overwrite` 会重建正文与 block ID，可能丢失评论和画板等资源，仅在用户确认整篇重建时使用。写入后检查返回的 `result` 与 `warnings`，再按影响范围回读核对文字、结构、链接与资源块。
+
+## 大幅修改：本地草稿
+
+重构一节或整篇时，在本地编辑完整 XML 再写回，比逐 block 调用更可靠：
+
+1. 在 `/tmp` 下建工作目录并进入；`docs +fetch --doc DOC --detail full` 拉取 XML 与 `revision_id`，保留原文件作对照。
+2. 用文件编辑工具修改；新内容不需要 block ID，原有资源块按下述规则处理。
+3. 对比新旧文件确认删改范围，再用 `block_replace` 写回，`--content @./draft.xml` 只接受工作目录内的相对路径，且工作目录不能位于 `/root` 等受保护目录；也可用 `--content -` 经标准输入传入。
+4. 以 `--detail full` 回读，核对结构、样式与资源块。
+
+| 规则 | 说明 |
+| --- | --- |
+| 整篇替换 | `--start-block-id 0 --end-block-id -1`，内容须以 `<title>` 开头 |
+| 列表没有 block ID | 范围两端为具体 ID 时中间不能夹 `<ol>`/`<ul>`；改用 `0` 或 `-1` 作为一端，或分段替换 |
+| 原生画板与附件 | 非 Mermaid 画板按 token 复制会失败，附件重新上传代价大；把它们留在替换范围之外，或先 `block_move_after` 移开再替换 |
+| Mermaid 画板 | 源码在 XML 内，可随替换重建 |
+| XML 与 Markdown | 富格式用 XML 写入；Markdown 导入与导出会丢失下划线、文字高亮与高亮块颜色 |
+| 样式核对 | 默认 `simple` 读取不含样式，核对高亮、颜色时用 `--detail full` |
 
 ## 回滚
 
