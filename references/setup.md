@@ -70,14 +70,14 @@ Wiki 分层入口使用文档、云空间和知识库能力。验证用户身份
 1. 用户提供 Wiki 入口时优先解析；本机已有配置时核验后复用。同一应用下须由具有知识库访问权限的用户登录。
 2. 未指定入口时，按标题搜索自己拥有的“知识与协作入口”：`lark-cli --profile PROFILE drive +search --as user --query '知识与协作入口' --only-title --mine --doc-types docx --page-size 5`。保持查询条件检查分页，最多 3 页；去除标题高亮后严格匹配。唯一有效候选自动连接，多个候选请用户选择。认证、权限或未完成分页的问题按实际返回处理；已知空间无法定位时请求入口链接。
 3. 用 `wiki +node-get --node-token NODE` 解析候选，取得 `space_id`、节点和内容对象，确认其为 docx 根节点；用 `wiki +node-list` 列出首页下一层，定位“核心协作准则 · 摘要”。
-4. 按 [配置模板](config.example.json) 写入 `~/.config/feishu-memory/config.json`：profile、Wiki 的 `space_id`、根节点与 URL、核心摘要的节点与 URL。项目、主题与资料目录不写入本机配置，由 Wiki 索引和概述中的资源索引维护。
+4. 按 [配置模板](config.example.json) 写入 `~/.config/feishu-memory/config.json`：profile、Wiki 的 `space_id`、根节点与 URL、核心摘要的节点与 URL。项目与主题不写入本机配置，由首页与各目录树维护。
 5. 读取核心摘要与首页，再读取一个项目或主题概述、执行一次限定空间搜索和一次章节读取，确认路径可用后继续原任务。
 
 检索正常且确认没有已有空间时，按下一节创建。配置可通过 `FEISHU_MEMORY_CONFIG` 指定；应用凭据与用户令牌由各机器的 CLI 独立管理。
 
 ## 创建新的记忆空间
 
-用户没有已有空间时，按 [Wiki 分层入口](wiki-navigation.md) 建立私有 Wiki、短首页与核心摘要，以及按需扩展的分类索引。通用记忆正文直接在 Wiki 维护；项目与学习产物按用户需求建立平级 Drive 文件夹，并在对应概述的资源索引中登记用途和读写范围。
+用户没有已有空间时，按 [Wiki 分层入口](wiki-navigation.md) 建立私有 Wiki、短首页与核心摘要，以及按需扩展的分类索引。通用记忆正文直接在 Wiki 维护；项目与学习主题按需在知识库根目录建立同级目录树。
 
 Wiki 首页使用稳定标题“知识与协作入口”，核心摘要保存已经确认的常用规则；完整偏好与项目状态按需链接。尚无偏好时记录待建立状态；概述与详细状态分别维护，结构见 [Wiki 分层入口](wiki-navigation.md)。
 

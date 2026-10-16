@@ -9,11 +9,14 @@ Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 
 | 启动上下文 | `docs +fetch --doc CORE_URL`；`docs +fetch --doc HOME_URL`（已知项目或主题时以对应概述替换首页） |
 | 列出当前层节点 | `wiki +node-list --space-id SPACE_ID --parent-node-token NODE --page-size 5` |
 | 在记忆空间检索 | `drive +search --query '主题词' --space-ids SPACE_ID --page-size 5`；按标题定位加 `--only-title` |
-| 在资料目录检索 | `drive +search --query '主题词' --folder-tokens FOLDER --page-size 5`，FOLDER 取自概述中的资源索引 |
+| 确认搜索结果归属 | `wiki +node-get --node-token NODE`，按 `parent_node_token` 判断所属目录树（标题不带项目前缀） |
+| 外部登记目录检索 | `drive +search --query '主题词' --folder-tokens FOLDER --page-size 5`，仅用于概述中登记的知识库外资料 |
 | 长文档先看目录 | `docs +fetch --doc DOC --scope outline --max-depth 2` |
 | 读取一节 | `docs +fetch --doc DOC --scope section --start-block-id HEADING_ID --detail with-ids` |
 | 按关键词读取 | `docs +fetch --doc DOC --scope keyword --keyword 'a\|b' --context-after 1 --detail with-ids` |
-| 查看文件夹 | `drive files list --params '{"folder_token":"FOLDER","page_size":50}'` |
+| 查看外部文件夹 | `drive files list --params '{"folder_token":"FOLDER","page_size":50}'` |
+| 移入知识库 | `wiki +move --obj-type docx --obj-token TOKEN --target-space-id SPACE_ID --target-parent-token NODE`；类型可为 docx、sheet、bitable、slides、file |
+| 重命名页面 | `drive +update-title --url WIKI_URL --title 新标题`，适用于所有节点类型 |
 
 启动正文合计约 4000 字符，常规展开单次约 12000 字符；超出时先读目录再选章节。搜索每页最多 5 条，翻页沿用同一查询和范围；新页面可能尚未进入索引，可先用节点列表定位。不要在记忆空间之外做账号全局搜索。Wiki 正文的 `--doc-types` 是 `docx`，不要用 `wiki` 筛选。
 
@@ -84,4 +87,4 @@ Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 
 
 项目页保存目标、当前状态、关键决定、下一步和证据入口。长期条目含稳定 ID、类型、范围、来源、日期、状态和版本；替代关系放在元数据中，正文呈现当前结论。用户明确反馈、实测、来源声明与推断分别标明。
 
-新增项目先在项目索引与限定空间搜索中检查已有条目，再通过官方技能创建 Wiki 概述、按需的详细状态页及平级资料文件夹。概述的资源索引登记资料入口、用途、读取范围与可写位置；回读核对后更新项目索引页。学习主题同样处理。资源位置以远程索引为准，本机配置不登记单篇文档。
+新增项目先在项目索引与限定空间搜索中检查已有条目，再在知识库根目录创建项目概述作为树根，按需建立子页面；回读核对后在首页与项目索引页登记。学习主题同样处理。知识库之外的资料在概述的资源索引中登记入口与读写范围。本机配置不登记单篇文档。
