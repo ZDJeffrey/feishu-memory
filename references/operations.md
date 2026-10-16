@@ -51,6 +51,29 @@ Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 
 | XML 与 Markdown | 富格式用 XML 写入；Markdown 导入与导出会丢失下划线、文字高亮与高亮块颜色 |
 | 样式核对 | 默认 `simple` 读取不含样式，核对高亮、颜色时用 `--detail full` |
 
+## 文字颜色与画板主题
+
+文字颜色与背景色使用命名色：`<span text-color="green">`、`<span background-color="light-yellow">`，可嵌套在 `<b>` 内组合使用；命名色随浅色与深色模式切换，不要写 rgb 值。
+
+画板颜色在 raw 节点中分两类：`*_color_type` 为 0 是主题色，深色模式下自动映射；为 1 是固定色。Mermaid 生成的节点全部是主题色，可直接使用。DSL 或 SVG 指定的颜色都是固定色，且 DSL 一旦设置 `fillColor` 就把节点文字固定为深色，深色模式下难以阅读。DSL 画板按以下步骤生成：
+
+1. 不画背景矩形；节点用中饱和色作 `fillColor` 与 `borderColor`，`rect`/`ellipse` 设 `opacity` 0.12–0.2（`frame` 不支持 `opacity`，需在转换后的 JSON 中设置 `fill_opacity`）；不写 `textColor`。
+2. `npx -y @larksuite/whiteboard-cli@^0.2.13 -i diagram.json -o diagram.png` 预览，`--check` 检查溢出与重叠。
+3. `--to openapi --format json` 转换后，把所有含 `text_color_type` 的对象改为 `text_color_type: 0`、`theme_text_color_code: -1`：
+
+   ```python
+   def theme_text(o):
+       if isinstance(o, dict):
+           if 'text_color_type' in o:
+               o['text_color_type'], o['theme_text_color_code'] = 0, -1
+           for v in o.values(): theme_text(v)
+       elif isinstance(o, list):
+           for v in o: theme_text(v)
+   ```
+
+4. `whiteboard +update --input_format raw --source @./diagram.openapi.json --overwrite --idempotent-token ID` 写入；画板刚创建时可能返回 not ready，稍后重试。
+5. `whiteboard +export --output-type raw` 确认没有 `text_color_type: 1` 与 `#ffffff` 填充，`--output-type preview` 检查服务端渲染结果。
+
 ## 回滚
 
 1. `docs +history-list --doc DOC --page-size 20` 列出历史，按 `revision_id` 或 `edit_time` 选定目标记录。
