@@ -2,7 +2,23 @@
 
 Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 URL 取自本机配置 `~/.config/feishu-memory/config.json`。读写记忆使用用户身份：`--profile PROFILE` 放在子命令之前，`--as user` 放在子命令之后，例如 `lark-cli --profile memory docs +fetch --doc URL --as user`；下表省略这两项。参数细节以官方 `lark-doc`、`lark-wiki`、`lark-drive`、`lark-whiteboard` 技能及 `--help` 为准；`--doc` 接受 Docx 或 Wiki 的 URL/token。
 
-## 读取
+## 本地副本
+
+`scripts/mirror.py` 把记忆 Wiki 镜像为本地 Markdown，变化检测与拉取由脚本完成，Agent 只读取输出的摘要与本地文件。
+
+| 命令 | 作用 |
+| --- | --- |
+| `mirror.py status` | 遍历目录并批量查询修改时间，列出远端新增、修改、移动与删除的页面，不拉取 |
+| `mirror.py pull` | 只拉取有变化的页面并输出差异（每页默认 40 行，`--diff-lines` 调整）；首次运行建立副本 |
+| `mirror.py pull --doc 页面` | 强制刷新指定页面；页面可为节点或对象 token、URL、副本路径或标题，可重复 |
+| `mirror.py locate 页面 文字` | 文字是标题时输出该节可用于 `block_replace` 的 block 范围，并标出没有 ID 的列表与原生画板；否则输出包含该文字的最内层 block；同时提示副本是否落后于远端 |
+
+副本按 Wiki 层级存放：页面为 `<标题>.md`，子页面在同名目录下，文件头记录 URL、对象 token 与 revision；表格、多维表格、幻灯片和文件只保存元数据。副本只用于阅读：Markdown 不保留文字颜色与高亮块颜色，修改一律按下文写到飞书，写完运行 `pull --doc` 刷新。目录可用 `--mirror` 或 `FEISHU_MEMORY_MIRROR` 指定。
+
+## 读取远端
+
+没有副本或需要核对样式时直接读取远端。读取内容用 `--doc-format markdown`，加 `--jq '.data.document.content'` 只输出正文；定位 block 时才用 `--detail with-ids`，核对样式时用 `--detail full`。
+
 
 | 目的 | 命令 |
 | --- | --- |
