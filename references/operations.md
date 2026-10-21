@@ -11,6 +11,7 @@ Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 
 | 在记忆空间检索 | `drive +search --query '主题词' --space-ids SPACE_ID --page-size 5`；按标题定位加 `--only-title` |
 | 确认搜索结果归属 | `wiki +node-get --node-token NODE`，按 `parent_node_token` 判断所属目录树（标题不带项目前缀） |
 | 外部登记目录检索 | `drive +search --query '主题词' --folder-tokens FOLDER --page-size 5`，仅用于概述中登记的知识库外资料 |
+| 按内容阅读 | `docs +fetch --doc DOC --doc-format markdown`，比 XML 少约 35%–55% 字符；`--scope keyword`/`section` 的返回带 `start-block-id`/`end-block-id`，可直接用于写回 |
 | 长文档先看目录 | `docs +fetch --doc DOC --scope outline --max-depth 2` |
 | 读取一节 | `docs +fetch --doc DOC --scope section --start-block-id HEADING_ID --detail with-ids` |
 | 按关键词读取 | `docs +fetch --doc DOC --scope keyword --keyword 'a\|b' --context-after 1 --detail with-ids` |
