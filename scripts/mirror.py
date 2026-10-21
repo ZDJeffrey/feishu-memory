@@ -292,7 +292,8 @@ def print_report(report, removed, total, docs, diff_lines):
         lines = [l for l in difflib.unified_diff(old.splitlines(), new.splitlines(), n=1, lineterm='')
                  if not l.startswith(('---', '+++'))]
         print(f'{kind}\t{path}')
-        print('\n'.join(lines[:diff_lines]))
+        if diff_lines > 0:
+            print('\n'.join(lines[:diff_lines]))
         if len(lines) > diff_lines:
             print(f'… 还有 {len(lines) - diff_lines} 行改动，见 {docs / path}')
     for path in removed:
