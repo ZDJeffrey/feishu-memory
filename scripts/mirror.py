@@ -150,8 +150,7 @@ class Mirror:
     def pull(self, only=(), diff_lines=40):
         entries, changes, removed = self.scan()
         if only:
-            wanted = {t for t, e in entries.items()
-                      if any(s in (t, e['obj'], e['path'], e['title']) for s in only)}
+            wanted = {t for s in only for t, _ in find(entries, s)}
             if not wanted:
                 sys.exit(f'未找到页面：{", ".join(only)}')
             changes = [(k, t) for k, t in changes if t in wanted]
@@ -207,8 +206,7 @@ class Mirror:
 
     def locate(self, page, text):
         """Print block IDs for the section headed by `text`, or for blocks containing it."""
-        matches = [(t, e) for t, e in self.manifest['nodes'].items()
-                   if page in (t, e['obj'], e['path'], e['title']) or e['path'].endswith(page)]
+        matches = find(self.manifest['nodes'], page)
         if len(matches) != 1:
             sys.exit(f'页面匹配 {len(matches)} 个：{page}')
         token, entry = matches[0]
@@ -234,6 +232,13 @@ class Mirror:
             sys.exit(f'未找到：{text}')
         for element in hits[:10]:
             print(f'block {element.get("id")} <{element.tag}> {"".join(element.itertext())[:40]}')
+
+
+def find(entries, query):
+    """Match a page by token, URL tail, mirror path or title; fall back to a substring."""
+    exact = [(t, e) for t, e in entries.items()
+             if query in (t, e['obj'], e['path'], e['title']) or e['path'].endswith('/' + query)]
+    return exact or [(t, e) for t, e in entries.items() if query in e['title'] or query in e['path']]
 
 
 def header(entry, token, base):
