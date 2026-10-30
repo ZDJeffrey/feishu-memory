@@ -1,57 +1,26 @@
 #!/usr/bin/env python3
-"""Install the portable skill; optionally activate its global task entry."""
+"""Install the portable skill in the Codex skills directory."""
 
 import argparse
 import os
 from pathlib import Path
 import shutil
 
-START = '<!-- feishu-memory:start -->'
-END = '<!-- feishu-memory:end -->'
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--codex-home', type=Path,
                         default=Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex'))))
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument('--activate', action='store_true',
-                      help='Install the skill and register its global task entry.')
-    mode.add_argument('--activate-only', action='store_true',
-                      help='Register this skill location without copying its files.')
     args = parser.parse_args()
     source = Path(__file__).resolve().parents[1]
-    home = args.codex_home.expanduser().resolve()
-    target = source if args.activate_only else home / 'skills/feishu-memory'
+    target = args.codex_home.expanduser().resolve() / 'skills/feishu-memory'
     if target.resolve() != source:
         target.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source / 'SKILL.md', target / 'SKILL.md')
         for name in ('agents', 'scripts', 'references'):
             shutil.copytree(source / name, target / name, dirs_exist_ok=True,
                             ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.local.json'))
-    if args.activate or args.activate_only:
-        home.mkdir(parents=True, exist_ok=True)
-        override = home / 'AGENTS.override.md'
-        use_override = override.exists() and override.read_text(encoding='utf-8').strip()
-        guidance = override if use_override else home / 'AGENTS.md'
-        original = guidance.read_text(encoding='utf-8') if guidance.exists() else ''
-        block = (f'{START}\n'
-                 '科研、开发、写作、环境操作、项目接续及记忆维护任务，'
-                 f'先读取 `{target / "SKILL.md"}` 并按需取得远程上下文；'
-                 '任务收尾按该技能更新项目状态和可复用记忆。'
-                 '自包含的简单请求可直接处理，同一会话复用已读准则。\n'
-                 f'{END}')
-        if START in original:
-            start, end = original.index(START), original.index(END) + len(END)
-            updated = original[:start] + block + original[end:]
-        else:
-            updated = original.rstrip() + '\n\n' + block + '\n'
-        if updated != original:
-            if guidance.exists():
-                shutil.copy2(guidance, guidance.with_name(guidance.name + '.before-feishu-memory'))
-            guidance.write_text(updated, encoding='utf-8')
-        print(f'Activated: {guidance}')
-    print(f'{"Registered" if args.activate_only else "Installed"}: {target}')
+    print(f'Installed: {target}')
 
 
 if __name__ == '__main__':

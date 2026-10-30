@@ -1,4 +1,6 @@
 interface:
   display_name: "飞书记忆"
   short_description: "首次使用按需配置环境，读取个人与项目记忆，并在任务完成后更新"
-  default_prompt: "使用 feishu-memory 技能完成当前任务，按需准备环境、读取记忆并在结束后更新项目状态。"
+  default_prompt: "使用 $feishu-memory 技能完成当前任务，按需准备环境、读取记忆并在结束后更新项目状态。"
+policy:
+  allow_implicit_invocation: false

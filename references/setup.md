@@ -6,7 +6,7 @@
 
 ## 默认交互流程
 
-用户安装技能并调用后，提供已有应用的 App ID。Agent 安装缺失的 CLI、选择 profile、生成终端配置命令；用户执行命令并隐藏输入 App Secret。Agent 核对应用配置后发起用户授权，用户在浏览器授权，Agent 完成登录、发现或建立记忆空间、写入本机配置、登记入口并验证。已有配置和有效授权直接复用，用户无需事先准备 profile 名称或配置文件。
+用户安装技能并调用后，提供已有应用的 App ID。Agent 安装缺失的 CLI、选择 profile、生成终端配置命令；用户执行命令并隐藏输入 App Secret。Agent 核对应用配置后发起用户授权，用户在浏览器授权，Agent 完成登录、发现或建立记忆空间、写入本机配置并验证。已有配置和有效授权直接复用，用户无需事先准备 profile 名称或配置文件。
 
 ## 安装飞书 CLI
 
@@ -83,16 +83,8 @@ Wiki 首页使用稳定标题“知识与协作入口”，核心摘要保存已
 
 创建后用节点列表与文档回读核对归属与权限，再写入本机配置并执行上一节第 5 步的验证。第一次实际任务完成时执行写回并回读。
 
-## 新对话发现
+## 在新对话中使用
 
-原生按描述发现技能的 Agent（如 Claude Code）安装技能后即可使用，无需额外登记。通过 `AGENTS.md` 读取全局指令的 Agent（如 Codex）首次调用本技能时，执行当前技能目录的安装器登记全局入口：
-
-```bash
-python3 scripts/install.py --activate-only
-```
-
-该模式保留当前技能安装位置，适用于 `npx skills add`、技能安装器或手动安装。入口按照 [Codex 指令发现规则](https://developers.openai.com/codex/guides/agents-md) 写入 `${CODEX_HOME:-~/.codex}` 下生效的 `AGENTS.override.md`（存在且非空时）或 `AGENTS.md`，只更新本技能的标记区并保留其他指令；重复执行保持同一入口。`--codex-home` 可指定其他使用同类机制的目录。用户明确限定仅本次使用时省略登记。
-
-从源码仓库安装到 Codex 技能目录可运行 `python3 scripts/install.py --activate`。
+在需要使用记忆的对话中明确调用本技能，例如 `$feishu-memory`。从源码目录安装到 Codex 技能目录可运行 `python3 scripts/install.py`；安装不修改 `AGENTS.md` 或注册全局入口。
 
 本机配置、认证凭据和临时文件留在用户环境；源码仓库包含通用技能和配置模板。发布前检查待提交文件清单。

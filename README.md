@@ -10,17 +10,17 @@
 npx skills add ZDJeffrey/feishu-memory --skill feishu-memory --global
 ```
 
-也可从源码安装到 Codex 技能目录并登记全局入口：
+也可从源码安装到 Codex 技能目录：
 
 ```bash
 git clone https://github.com/ZDJeffrey/feishu-memory.git
 cd feishu-memory
-python3 scripts/install.py --activate
+python3 scripts/install.py
 ```
 
-`install.py` 面向通过 `AGENTS.md` 发现全局指令的 Agent，将技能放入 `${CODEX_HOME:-~/.codex}/skills/feishu-memory`，`--activate` 同时登记全局调用入口并保留已有指令。原生按描述发现技能的 Agent 安装后即可使用。Windows 可使用 `py -3` 执行脚本。
+`install.py` 将技能放入 `${CODEX_HOME:-~/.codex}/skills/feishu-memory`，不修改 `AGENTS.md` 或注册全局入口。Windows 可使用 `py -3` 执行脚本。
 
-新开对话后以技能名加任务描述开始，例如 `$feishu-memory 继续论文项目，整理当前进展和下一步。`（Codex）或 `/feishu-memory …`（Claude Code）。
+需要使用记忆时，在当前对话明确引入技能并说明任务，例如 `$feishu-memory 继续论文项目，整理当前进展和下一步。`（Codex）或 `/feishu-memory …`（Claude Code）。
 
 ## 首次使用
 
@@ -33,7 +33,7 @@ python3 scripts/install.py --activate
 | 用户 | 在本机终端运行命令，隐藏输入 App Secret。 |
 | Agent | 核对应用配置，发起用户授权并展示链接和二维码。 |
 | 用户 | 在浏览器完成授权。 |
-| Agent | 完成登录，查找并连接已有记忆空间，首次建立时创建独立空间；写入本机配置、登记入口、验证并继续原任务。 |
+| Agent | 完成登录，查找并连接已有记忆空间，首次建立时创建独立空间；写入本机配置、验证并继续原任务。 |
 
 已有配置与有效授权直接复用。只有多个空间候选、入口无法定位或管理员审批等情况需要用户补充处理。[完整设置流程](references/setup.md) 随技能提供。
 
@@ -41,7 +41,7 @@ python3 scripts/install.py --activate
 
 ## 日常流程
 
-Wiki 作为用户与 Agent 共用入口。Agent 通过 `scripts/mirror.py` 维护只读的本地 Markdown 副本：开始任务时只拉取远端改动过的页面并查看差异，在本地检索与阅读，写入仍直接修改飞书文档。开始任务时读取核心摘要与首页，已知项目或主题时直接读取对应概述；再按需逐层列出节点、在记忆空间内限定检索、按章节展开。启动正文约 4000 字符，常规展开单次约 12000 字符，每轮最多检查 5 个候选。
+显式启用技能后，Wiki 作为用户与 Agent 共用入口。Agent 通过 `scripts/mirror.py` 维护只读的本地 Markdown 副本：开始任务时只拉取远端改动过的页面并查看差异，在本地检索与阅读，写入仍直接修改飞书文档。开始任务时读取核心摘要与任务相关规范；项目明确时读取项目概述，入口不明时读取首页，再按需在本地副本中检索和按章节展开。启动正文约 4000 字符，常规展开单次约 12000 字符，每轮最多检查 5 个候选。
 
 更新时 Agent 按官方 `lark-doc` 流程读取目标、携带版本号写入并回读：被新结论取代的内容直接替换或删除，比较与映射用表格，流程与架构用画板；历史由飞书文档版本记录承载，可用 `+history-revert` 回滚。删除、移动、权限变更、整篇覆盖和扩大读写范围前先取得用户确认。命令见 [读写操作](references/operations.md)。
 
@@ -60,4 +60,4 @@ python3 scripts/check.py
 lark-cli --profile memory auth status --json --verify
 ```
 
-`check.py` 检查全局入口登记的保留与幂等行为；授权检查确认当前机器的 CLI 登录状态。实际读写在用户授权的 Wiki 中执行。
+`check.py` 检查安装的幂等性、已有指令文件不变及本地副本规划；授权检查确认当前机器的 CLI 登录状态。实际读写在用户授权的 Wiki 中执行。
