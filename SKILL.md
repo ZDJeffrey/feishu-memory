@@ -9,6 +9,8 @@ description: 通过飞书 CLI 为具有本地工具的 Agent 提供远程记忆�
 
 用户在当前会话点选、@ 引用、输入 `$feishu-memory` / `/feishu-memory` 或明确要求使用本技能时启用。启用后在本会话持续有效，直到用户停用；子 Agent 仅在父任务明确传递启用状态时继承。未启用时不查询、同步或写入飞书记忆，也不因科研、编码、写作等关键词自行启动。安装不修改 AGENTS.md、CLAUDE.md 或其他系统提示；已安装技能与已启用会话分别对待。
 
+飞书操作的本地草稿、下载资源、预览和校验输出统一存放在项目目录之外的系统临时目录。调用 `docs +script --command init-draft` 前，先将命令执行工具的工作目录设为系统临时目录（如 `/tmp`），使 CLI 自动生成的 `draft_*_folder` 落在那里；后续沿用返回的 `data.cwd` 与 `data.draft_path`。子 Agent 遵守同一约定；只有用户要求交付到项目中的文件才写入项目。具体流程见 [本地工作目录](references/operations.md#本地工作目录)。
+
 ## 首次调用
 
 1. 检查 `lark-cli` 与本机配置 `~/.config/feishu-memory/config.json`（可用 `FEISHU_MEMORY_CONFIG` 指定）。任一缺失时读取 [首次配置](references/setup.md)，按官方 README 安装 CLI 和配套技能。

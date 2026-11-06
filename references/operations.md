@@ -2,6 +2,19 @@
 
 Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 URL 取自本机配置 `~/.config/feishu-memory/config.json`。读写记忆使用用户身份：`--profile PROFILE` 放在子命令之前，`--as user` 放在子命令之后，例如 `lark-cli --profile memory docs +fetch --doc URL --as user`；下表省略这两项。参数细节以官方 `lark-doc`、`lark-wiki`、`lark-drive`、`lark-whiteboard` 技能及 `--help` 为准；`--doc` 接受 Docx 或 Wiki 的 URL/token。
 
+## 本地工作目录
+
+飞书操作产生的草稿、资源下载、预览、校验结果和临时脚本放在项目目录之外的系统临时目录；只读记忆副本继续使用配置的缓存目录。需要交付到项目中的文件按用户指定位置保存。
+
+新建文档按官方创作流程准备内容，并在初始化草稿时执行以下步骤：
+
+1. 将命令执行工具的 `workdir` 或 `cwd` 设置为系统临时目录；macOS/Linux 可用 `/tmp`，其他平台使用实际系统临时目录。每次命令调用显式设置工作目录，不依赖上一次 shell 的 `cd`。
+2. 在该目录运行 `lark-cli docs +script --command init-draft --presentation-decision '…'`，由 CLI 创建独占的 `draft_*_folder`；完整决策 JSON 按官方流程提供。
+3. 读取返回的 `data.cwd`、`data.workspace` 和 `data.draft_path`，在对应路径写入草稿与新生成的资源；后续解析、上传与创建命令继续使用 `data.cwd`，相对文件路径以此为基准。
+4. 按官方流程保留创作草稿；它们留在项目外的工作目录中。子 Agent 接收此目录约定，独立文档各自初始化草稿工作区。
+
+局部更新可直接通过内联内容或 stdin 传入；需要落盘时也使用上述项目外目录。已有项目资源按允许的路径读取，新增中间文件写入草稿工作区。
+
 ## 本地副本
 
 `scripts/mirror.py` 把记忆 Wiki 镜像为本地 Markdown，变化检测与拉取由脚本完成，Agent 只读取输出的摘要与本地文件。
@@ -57,7 +70,7 @@ Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 
 
 重构一节或整篇时，在本地编辑完整 XML 再写回，比逐 block 调用更可靠：
 
-1. 在 `/tmp` 下建工作目录并进入；`docs +fetch --doc DOC --detail full` 拉取 XML 与 `revision_id`，保留原文件作对照。
+1. 在系统临时目录下创建本任务的独占工作目录，并在每次命令调用中显式设置该工作目录；`docs +fetch --doc DOC --detail full` 拉取 XML 与 `revision_id`，保留原文件作对照。
 2. 用文件编辑工具修改；新内容不需要 block ID，原有资源块按下述规则处理。
 3. 对比新旧文件确认删改范围，再用 `block_replace` 写回，`--content @./draft.xml` 只接受工作目录内的相对路径，且工作目录不能位于 `/root` 等受保护目录；也可用 `--content -` 经标准输入传入。
 4. 以 `--detail full` 回读，核对结构、样式与资源块。
