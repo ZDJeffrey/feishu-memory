@@ -62,9 +62,9 @@ Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 
 | 移动 | 调整章节顺序或归属 | `docs +update --command block_move_after --block-id ANCHOR --src-block-ids IDS` |
 | 行内修正 | 术语、数字等短文本 | `docs +update --command str_replace --pattern '旧' --content '新'` |
 
-先选替换与删除：同一主题只保留一份当前表述，被取代的内容直接改写或删去，不在原文旁追加修订说明，也不按“第 N 轮”“本轮”逐次追加章节。比较、映射与字段用表格；流程、架构、时序和依赖用画板，在 XML 中写 `<whiteboard type="mermaid">…</whiteboard>`，复杂图按官方 `lark-doc` 画板流程处理。写法与飞书格式见记忆空间中的写作规范（存在时）。
+写入前找到事实的维护位置，将局部内容改写为完整的当前表述，并清理本次变化直接影响的旧状态与重复；相关概述按需摘要并链接详细内容。用户要求阶段整理时，通读相关文档并完整重组。比较、映射与字段用表格；流程、架构、时序和依赖用画板，在 XML 中写 `<whiteboard type="mermaid">…</whiteboard>`，复杂图按官方 `lark-doc` 画板流程处理。内容取舍、写法与飞书格式见记忆空间中的写作规范。
 
-`overwrite` 会重建正文与 block ID，可能丢失评论和画板等资源，仅在用户确认整篇重建时使用。写入后检查返回的 `result` 与 `warnings`，再按影响范围回读核对文字、结构、链接与资源块。
+`overwrite` 会重建正文与 block ID，可能丢失评论和画板等资源，仅在用户确认整篇重建时使用。写入后检查返回的 `result` 与 `warnings`，按影响范围回读核对文字、结构、链接与资源块，并检查当前状态是否矛盾、条件是否重复、段落是否混题及内容能否独立理解。
 
 ## 大幅修改：本地草稿
 
