@@ -1,6 +1,6 @@
 # 读写操作
 
-Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 URL 取自本机配置 `~/.config/feishu-memory/config.json`。读写记忆使用用户身份：`--profile PROFILE` 放在子命令之前，`--as user` 放在子命令之后，例如 `lark-cli --profile memory docs +fetch --doc URL --as user`；下表省略这两项。参数细节以官方 `lark-doc`、`lark-wiki`、`lark-drive`、`lark-whiteboard` 技能及 `--help` 为准；`--doc` 接受 Docx 或 Wiki 的 URL/token。
+Terra 调用 `lark-cli` 并执行全部飞书远端操作。以下命令中 `PROFILE`、`SPACE_ID`、入口 URL 取自本机配置 `~/.config/feishu-memory/config.json`。读写记忆使用用户身份：`--profile PROFILE` 放在子命令之前，`--as user` 放在子命令之后，例如 `lark-cli --profile memory docs +fetch --doc URL --as user`；下表省略这两项。参数细节以官方 `lark-doc`、`lark-wiki`、`lark-drive`、`lark-whiteboard` 技能及 `--help` 为准；`--doc` 接受 Docx 或 Wiki 的 URL/token。
 
 ## 本地工作目录
 
@@ -17,20 +17,36 @@ Agent 直接调用 `lark-cli`。以下命令中 `PROFILE`、`SPACE_ID`、入口 
 
 ## 本地副本
 
-`scripts/mirror.py` 把记忆 Wiki 镜像为本地 Markdown，变化检测与拉取由脚本完成，Agent 只读取输出的摘要与本地文件。
+`scripts/mirror.py` 把记忆 Wiki 镜像为本地 Markdown，Terra 负责变化检测和拉取，主 Agent 读取本地文件。启动同步使用 `pull --summary`，Terra 返回状态、相关页面和异常；需要查看差异时按目标页面展开。
 
 | 命令 | 作用 |
 | --- | --- |
 | `mirror.py status` | 遍历目录并批量查询修改时间，列出远端新增、修改、移动与删除的页面，不拉取 |
-| `mirror.py pull` | 只拉取有变化的页面并输出差异（每页默认 40 行，`--diff-lines` 调整）；首次运行建立副本 |
+| `mirror.py pull --summary` | 只拉取有变化的页面并输出变更数量和副本路径；首次运行建立副本 |
+| `mirror.py pull` | 拉取有变化的页面并输出差异（每页默认 40 行，`--diff-lines` 调整） |
 | `mirror.py pull --doc 页面` | 强制刷新指定页面；页面可为节点或对象 token、URL、副本路径或标题，可重复 |
+| `mirror.py checkout 页面` | 从本地镜像建立独立的 Markdown 工作目录，页面须唯一匹配且为 docx |
+| `mirror.py work-status 目录` | 检查基线完整性、本地镜像漂移与画板引用，并输出工作副本差异 |
 | `mirror.py locate 页面 文字` | 文字是标题时输出该节可用于 `block_replace` 的 block 范围，并标出没有 ID 的列表与原生画板；否则输出包含该文字的最内层 block；同时提示副本是否落后于远端 |
 
-副本按 Wiki 层级存放：页面为 `<标题>.md`，子页面在同名目录下，文件头记录 URL、对象 token 与 revision；表格、多维表格、幻灯片和文件只保存元数据。副本只用于阅读：Markdown 不保留文字颜色与高亮块颜色，修改一律按下文写到飞书，写完运行 `pull --doc` 刷新。目录可用 `--mirror` 或 `FEISHU_MEMORY_MIRROR` 指定。
+副本按 Wiki 层级存放：页面为 `<标题>.md`，子页面在同名目录下，文件头记录 URL、对象 token 与 revision；表格、多维表格、幻灯片和文件只保存元数据。副本只用于阅读，拉取会覆盖对应页面；目录可用 `--mirror` 或 `FEISHU_MEMORY_MIRROR` 指定。Markdown 不保留文字颜色与高亮块颜色，不能将工作副本直接作为完整富文档写回。
+
+## 工作副本与冲突
+
+1. Terra 定向刷新目标页后运行 `mirror.py checkout 页面`，在系统临时目录建立独立目录。`baseline.md` 是只读基线，`working.md` 是主 Agent 编辑的原生 Markdown，`task.json` 保存目标、基线 revision、哈希及画板原始标记；单页由一个执行者编辑。
+2. Terra 运行 `mirror.py work-status 目录` 检查本地基线、镜像漂移和画板引用，并比较工作稿与基线。此命令只检查本地，输出全文差异，不读取远端或自动写回；Terra 给主 Agent 返回精简结果。
+3. 写入前 Terra 读取远端最新内容和目标结构，按 baseline、working 与 remote 三方比较。远端未变时按最新 revision 局部写入；远端变化且改动互不重叠、目标明确时合并到最新内容；同处修改、目标删除或移动导致定位不明、资源与样式语义不明确时暂停，由主 Agent 判断。
+4. Terra 用最新 `--revision-id` 执行最小局部修改，保留不涉及的资源；每次写入后重新读取 revision 和 block ID。版本冲突时重新读取并作三方比较；结果不明或部分成功时先回读，确认已完成范围后再继续，避免重复插入。写后核对文字、结构、链接及受影响资源，再定向刷新只读镜像。返回目标 URL、基线与最终 revision、修改范围、验证和待决事项。
+
+## 画板资源
+
+工作副本中可识别的独立画板标记转换为指向 `assets/<token>/description.md` 的普通 Markdown 链接，初始说明仅表示尚未读取；其他格式的画板标记保留原样。Terra 按需读取真实远端画板，维护 token、raw、可取得的源码、预览和语义说明；既有画板以远端内容为准，源码不一定可得，画板变化不能仅凭文档 revision 判断。主 Agent 按语义说明检索，在关键判断时查看预览。
+
+新图或新文档交接时，主 Agent 在 `working.md` 中放置普通链接，例如 `[图示](assets/graph-switch/spec.md)`，并在该 spec 中写明用途、实体和关系、约束、布局形式及验收条件。Terra 根据说明绘制、创建并核验远端画板，记录实际 token 与预览的映射；本地交接链接须解析为对应远端画板，不能原样发布。已有但未识别的画板标记由 Terra 按远端结构处理，主 Agent 无需编辑 XML。画板、附件和复杂表格需按实际远端结构处理，不能仅凭 Markdown 差异自动替换。
 
 ## 读取远端
 
-没有副本或需要核对样式时直接读取远端。读取内容用 `--doc-format markdown`，加 `--jq '.data.document.content'` 只输出正文；定位 block 时才用 `--detail with-ids`，核对样式时用 `--detail full`。
+没有副本或需要核对样式时由 Terra 读取远端。读取内容用 `--doc-format markdown`，加 `--jq '.data.document.content'` 只输出正文；定位 block 时才用 `--detail with-ids`，核对样式时用 `--detail full`。
 
 
 | 目的 | 命令 |
