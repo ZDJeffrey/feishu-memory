@@ -1,16 +1,14 @@
 # Feishu Memory
 
-为具有本机工具的 Agent（如 Claude Code、Codex）提供可迁移的飞书远程记忆：开始任务时按需取上下文，完成任务时更新项目状态与长期条目。Agent 直接调用飞书官方 [lark-cli](https://github.com/larksuite/cli) 及其配套技能读写，本技能约定记忆的组织、读取范围与更新方式。
+为具有本机工具的 Agent（Antigravity/Gemini、Codex/GPT、Claude Code）提供可迁移的飞书远程记忆：启动时秒级同步目录与核心规范，按需懒加载目标子树，任务结束后精准局部写回并维护两级索引。
 
 ## 安装
-
-使用技能安装器（`--agent` 可指定目标 Agent，省略时按安装器检测结果安装）：
 
 ```bash
 npx skills add ZDJeffrey/feishu-memory --skill feishu-memory --global
 ```
 
-也可从源码安装到 Codex 技能目录：
+或从源码安装：
 
 ```bash
 git clone https://github.com/ZDJeffrey/feishu-memory.git
@@ -18,48 +16,18 @@ cd feishu-memory
 python3 scripts/install.py
 ```
 
-`install.py` 将技能放入 `${CODEX_HOME:-~/.codex}/skills/feishu-memory`，不修改 `AGENTS.md` 或注册全局入口。Windows 可使用 `py -3` 执行脚本。
+`install.py` 将技能安装到目标技能目录，不修改 `AGENTS.md` 或 `CLAUDE.md`。使用时在对话中显式引入 `/feishu-memory` 或 `$feishu-memory`。
 
-需要使用记忆时，在当前对话明确引入技能并说明任务，例如 `$feishu-memory 继续论文项目，整理当前进展和下一步。`（Codex）或 `/feishu-memory …`（Claude Code）。
+## 核心流程
 
-## 首次使用
-
-安装并调用技能后，默认流程如下：
-
-| 执行方 | 操作 |
-| --- | --- |
-| 用户 | 提供已有飞书应用的 App ID。 |
-| Agent | 按[官方 README](https://github.com/larksuite/cli/blob/main/README.zh.md)安装缺失的 CLI 和配套技能，选择 profile，给出可直接执行的配置命令。 |
-| 用户 | 在本机终端运行命令，隐藏输入 App Secret。 |
-| Agent | 核对应用配置，发起用户授权并展示链接和二维码。 |
-| 用户 | 在浏览器完成授权。 |
-| Agent | 完成登录，查找并连接已有记忆空间，首次建立时创建独立空间；写入本机配置、验证并继续原任务。 |
-
-已有配置与有效授权直接复用。只有多个空间候选、入口无法定位或管理员审批等情况需要用户补充处理。[完整设置流程](references/setup.md) 随技能提供。
-
-本机配置默认保存在 `~/.config/feishu-memory/config.json`，只记录 CLI profile、Wiki 空间与首页、核心摘要入口，结构见 [配置模板](references/config.example.json)；可用 `FEISHU_MEMORY_CONFIG` 指定其他位置。认证凭据由飞书 CLI 管理。技能源码独立于账号、文档标识和机器路径。
-
-## 日常流程
-
-显式启用技能后，主 Agent 先分派 GPT-6.1 Terra 同步只读本地 Markdown 副本，再读取核心摘要及任务相关规范；同会话复用已读且未变化的规范。Terra 使用精简同步摘要，主 Agent 按需检索本地内容。
-
-编辑飞书文档时，Terra 从目标页建立含基线、工作稿和元数据的独立工作目录，主 Agent 编辑 Markdown 工作稿；Terra 对照基线与最新远端内容处理冲突，携带 revision 局部写入、回读验证并刷新只读副本。画板由 Terra 绘制、读取和核验，工作稿通过普通链接关联语义说明及预览。删除、移动、权限变更、整篇覆盖和扩大读写范围前先取得用户确认。命令及资源限制见 [读写操作](references/operations.md)。
-
-飞书操作的草稿、下载资源和预览等中间文件保存在项目外的系统临时目录；初始化草稿前显式设置命令工作目录，避免 CLI 将 `draft_*_folder` 生成在项目中。子 Agent 遵守同一约定。
-
-通用记忆正文与导航保存在 Wiki 入口下；每个项目和学习主题是知识库根目录下的一棵同级目录树，树根为概述，可同时保存设计、实验、报告和汇报产物，页面标题由目录表达归属、不加项目前缀。知识库之外的资料通过概述中的资源索引登记入口与读写范围，默认只读，约定见 [外部资源接入](references/external-resources.md)。
-
-## 换机器
-
-安装并调用本技能，应用尚未绑定时提供原 App ID，按 Agent 给出的命令完成终端配置和浏览器授权。Agent 自动搜索“知识与协作入口”、核对 Wiki 空间并写入本机配置。具体操作见[自动发现与连接记忆空间](references/setup.md#自动发现与连接记忆空间)。
-
-本机配置保存实际 profile 和 Wiki 入口，应用凭据与用户令牌由各机器的 CLI 独立管理。多机器同时写同一文档时，以 `--revision-id` 检测冲突并重新读取合并。
+1. **首次配置**：按 [首次配置](references/setup.md) 安装 `lark-cli`、绑定 App ID 并完成浏览器授权，自动连接“知识与协作入口”并写入 `~/.config/feishu-memory/config.json`。
+2. **秒级启动与按需读取**：主 Agent 直接运行 `python3 scripts/mirror.py sync`，同步目录元数据、更新核心规范页并生成本地 `TREE.md`；进入具体项目时运行 `mirror.py pull --scope <目录>` 懒加载目标子树。
+3. **精准写回与 Mermaid 优先**：主 Agent 直接通过 `mirror.py locate` 与 `lark-cli docs +update` 局部写回并回读，不强制拆分专用飞书子 Agent；常规流程图、时序图与架构图默认使用 `<whiteboard type="mermaid">`。
+4. **安全红线**：写入限于记忆 Wiki 空间；删除/移动节点、权限变更、整篇 `overwrite` 及扩大外部范围前必须取得用户确认。
 
 ## 验证
 
 ```bash
 python3 scripts/check.py
-lark-cli --profile memory auth status --json --verify
+lark-cli --profile agent-memory auth status --json --verify
 ```
-
-`check.py` 检查安装的幂等性、已有指令文件不变及本地副本规划；授权检查确认当前机器的 CLI 登录状态。实际读写在用户授权的 Wiki 中执行。

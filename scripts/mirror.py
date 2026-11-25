@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-"""Keep a read-only local Markdown mirror of the memory Wiki."""
+"""Maintain a lightweight lazy-loaded Markdown cache of the memory Wiki."""
 
 import argparse
 import difflib
-import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
-import tempfile
 import time
 import xml.etree.ElementTree as ET
-from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,8 +17,7 @@ from urllib.parse import urlparse
 
 CONFIG = Path(os.environ.get("FEISHU_MEMORY_CONFIG", Path.home() / ".config/feishu-memory/config.json"))
 HEADING = re.compile(r"h([1-9])$")
-WHITEBOARD = re.compile(r'^\s*<whiteboard\s+token="([A-Za-z0-9_-]+)"\s*>\s*</whiteboard>\s*$')
-RESOURCE = re.compile(r"\[飞书画板 ([^\]]+)\]\(assets/([^/\)]+)/description\.md\)")
+CORE_PREFIXES = ("知识与协作入口.md", "知识与协作入口/核心协作准则", "知识与协作入口/Agent 记忆/")
 
 
 class Cli:
@@ -48,7 +44,8 @@ class Cli:
 def walk(cli, space):
     nodes = []
 
-    def children(parent):
+    def fetch_level(parent):
+        level = []
         token = None
         while True:
             args = ["wiki", "+node-list", "--space-id", space, "--page-size", "50"]
@@ -57,21 +54,26 @@ def walk(cli, space):
             if token:
                 args += ["--page-token", token]
             data = cli(*args)
-            for node in data["nodes"]:
-                nodes.append(node)
-                if node["has_child"]:
-                    children(node["node_token"])
+            level.extend(data["nodes"])
             if not data.get("has_more"):
-                return
+                return level
             token = data["page_token"]
 
-    children(None)
+    frontier = [None]
+    with ThreadPoolExecutor(6) as pool:
+        while frontier:
+            next_frontier = []
+            for batch in pool.map(fetch_level, frontier):
+                for node in batch:
+                    nodes.append(node)
+                    if node.get("has_child"):
+                        next_frontier.append(node["node_token"])
+            frontier = next_frontier
     return nodes
 
 
 def layout(nodes):
-    """Map node tokens to mirror paths that follow the Wiki tree: a page is
-    `<title>.md` and its children live in the sibling directory `<title>/`."""
+    """Map node tokens to mirror paths that follow the Wiki tree."""
     by_parent = {}
     for node in nodes:
         by_parent.setdefault(node.get("parent_node_token") or "", []).append(node)
@@ -102,28 +104,63 @@ def modified_times(cli, nodes):
 
 
 def plan(old, nodes, paths, times):
-    """Compare the remote tree with the manifest; return the new entries,
-    `(kind, node)` changes with kind in new/changed/moved, and removed nodes."""
+    """Compare the remote tree with the manifest; return new entries, changes, and removed tokens."""
     entries = {}
     for node in nodes:
-        entries[node["node_token"]] = {
+        token = node["node_token"]
+        prev = old.get(token) or {}
+        entries[token] = {
             "title": node["title"],
-            "path": paths[node["node_token"]],
+            "path": paths[token],
             "obj": node["obj_token"],
             "type": node["obj_type"],
             "modified": times.get(node["obj_token"], ""),
+            "cached_modified": prev.get("cached_modified", ""),
+            "revision": prev.get("revision"),
         }
     changes = []
     for token, entry in entries.items():
         before = old.get(token)
         if before is None:
             changes.append(("new", token))
-        elif before["modified"] != entry["modified"]:
+        elif before.get("modified") != entry["modified"]:
             changes.append(("changed", token))
-        elif before["path"] != entry["path"]:
+        elif before.get("path") != entry["path"]:
             changes.append(("moved", token))
     removed = [token for token in old if token not in entries]
     return entries, changes, removed
+
+
+def is_core_path(path):
+    return any(path == p or path.startswith(p) for p in CORE_PREFIXES)
+
+
+def matches_scope(path, scopes):
+    for raw in scopes:
+        s = raw.strip("/")
+        if not s:
+            continue
+        if path == s or path == f"{s}.md" or path.startswith(f"{s}/") or s in path:
+            return True
+    return False
+
+
+def render_tree(entries, docs_dir):
+    lines = ["# Wiki 实时目录与缓存状态", "", "状态：`cached` 已是最新缓存，`stale` 远端有更新，`remote` 未下载（按需 `pull --scope` 拉取）。", ""]
+    for token, entry in sorted(entries.items(), key=lambda kv: kv[1]["path"]):
+        path = entry["path"]
+        file_path = docs_dir / path
+        if entry["type"] != "docx":
+            state = entry["type"]
+        elif not file_path.exists():
+            state = "remote"
+        elif entry.get("cached_modified") == entry.get("modified"):
+            state = "cached"
+        else:
+            state = "stale"
+        depth = path.count("/")
+        lines.append(f"{'  ' * depth}- `{path}` [{state}]")
+    return "\n".join(lines) + "\n"
 
 
 class Mirror:
@@ -145,7 +182,7 @@ class Mirror:
 
     def status(self):
         if not self.manifest_path.exists():
-            print(f"未建立副本，运行 pull：{self.root}")
+            print(f"未建立缓存，运行 sync：{self.root}")
             return
         entries, changes, removed = self.scan()
         for kind, token in changes:
@@ -155,126 +192,108 @@ class Mirror:
         if not changes and not removed:
             print(f"up to date ({len(entries)} pages)")
 
-    def pull(self, only=(), diff_lines=40, summary=False):
-        entries, changes, removed = self.scan()
-        if only:
-            wanted = {t for s in only for t, _ in find(entries, s)}
-            if not wanted:
-                sys.exit(f"未找到页面：{', '.join(only)}")
-            changes = [(k, t) for k, t in changes if t in wanted]
-            changes += [("changed", t) for t in wanted if t not in {c[1] for c in changes}]
-            removed = []
-        fetch = [t for k, t in changes if k != "moved" and entries[t]["type"] == "docx"]
-        with ThreadPoolExecutor(2) as pool:
-            bodies = dict(zip(fetch, pool.map(self.fetch, (entries[t]["obj"] for t in fetch))))
-        nodes = self.manifest["nodes"]
-        removed = [nodes.pop(token)["path"] for token in removed]
-        for path in removed:
+    def _apply_structural(self, entries, removed):
+        old_nodes = self.manifest["nodes"]
+        docs_dir = self.root / "docs"
+        removed_paths = []
+        for token in removed:
+            path = old_nodes[token]["path"]
             self.remove(path)
-        report = []
-        for kind, token in changes:
-            entry = entries[token]
-            before = nodes.get(token)
-            old_text = ""
-            if before:
-                old_file = self.root / "docs" / before["path"]
-                old_text = old_file.read_text(encoding="utf-8") if old_file.exists() else ""
-                if before["path"] != entry["path"]:
-                    self.remove(before["path"])
-            if token in bodies:
-                entry["revision"], body = bodies[token]
-            elif entry["type"] != "docx":
-                body = f"{entry['type']} 节点，正文不镜像，按对应官方技能读取。\n"
-            else:
-                entry["revision"] = before.get("revision") if before else None
-                body = strip_header(old_text)
-            target = self.root / "docs" / entry["path"]
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(header(entry, token, self.base) + body, encoding="utf-8")
-            nodes[token] = entry
-            report.append((kind, entry["path"], strip_header(old_text), body))
+            removed_paths.append(path)
+        for token, entry in entries.items():
+            before = old_nodes.get(token)
+            if before and before["path"] != entry["path"]:
+                old_file = docs_dir / before["path"]
+                if old_file.exists():
+                    new_file = docs_dir / entry["path"]
+                    new_file.parent.mkdir(parents=True, exist_ok=True)
+                    old_file.replace(new_file)
+                    self._prune_empty(old_file.parent)
+        return removed_paths
+
+    def _save(self, entries):
+        self.manifest["nodes"] = entries
         self.manifest["synced_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         self.root.mkdir(parents=True, exist_ok=True)
         tmp = self.manifest_path.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.manifest, ensure_ascii=False, indent=1), encoding="utf-8")
         tmp.replace(self.manifest_path)
+        (self.root / "TREE.md").write_text(render_tree(entries, self.root / "docs"), encoding="utf-8")
+
+    def sync(self):
+        entries, changes, removed = self.scan()
+        removed_paths = self._apply_structural(entries, removed)
+        docs_dir = self.root / "docs"
+        to_fetch = [
+            t
+            for t, e in entries.items()
+            if e["type"] == "docx"
+            and is_core_path(e["path"])
+            and (not (docs_dir / e["path"]).exists() or e.get("cached_modified") != e["modified"])
+        ]
+        self._fetch_and_write(entries, to_fetch)
+        self._save(entries)
+        stale = sum(
+            1
+            for e in entries.values()
+            if e["type"] == "docx" and (docs_dir / e["path"]).exists() and e.get("cached_modified") != e["modified"]
+        )
+        print(
+            f"目录已同步（共 {len(entries)} 页，核心更新 {len(to_fetch)} 页，移除 {len(removed_paths)} 页，其余待拉取/过期待刷新 {stale} 页）；"
+            f"索引：{self.root / 'TREE.md'}"
+        )
+
+    def pull(self, only=(), scopes=(), diff_lines=40, summary=False):
+        entries, changes, removed = self.scan()
+        removed_paths = self._apply_structural(entries, removed) if not only and not scopes else []
+        docs_dir = self.root / "docs"
+        if only:
+            wanted = {t for s in only for t, _ in find(entries, s)}
+            if not wanted:
+                sys.exit(f"未找到页面：{', '.join(only)}")
+            to_fetch = [t for t in wanted if entries[t]["type"] == "docx"]
+        elif scopes:
+            wanted = [t for t, e in entries.items() if matches_scope(e["path"], scopes)]
+            if not wanted:
+                sys.exit(f"未匹配范围：{', '.join(scopes)}")
+            to_fetch = [
+                t
+                for t in wanted
+                if entries[t]["type"] == "docx"
+                and (not (docs_dir / entries[t]["path"]).exists() or entries[t].get("cached_modified") != entries[t]["modified"])
+            ]
+        else:
+            to_fetch = [
+                t
+                for t, e in entries.items()
+                if e["type"] == "docx"
+                and (not (docs_dir / e["path"]).exists() or e.get("cached_modified") != e["modified"])
+            ]
+        report = self._fetch_and_write(entries, to_fetch)
+        self._save(entries)
         if summary:
-            print(f"更新 {len(report)} 页，移除 {len(removed)} 页；副本：{self.root / 'docs'}")
+            print(f"更新 {len(report)} 页，移除 {len(removed_paths)} 页；副本：{docs_dir}")
         else:
-            print_report(report, removed, len(nodes), self.root / "docs", diff_lines)
+            print_report(report, removed_paths, len(entries), docs_dir, diff_lines)
 
-    def checkout(self, page):
-        matches = find(self.manifest["nodes"], page)
-        if len(matches) != 1:
-            sys.exit(f"页面匹配 {len(matches)} 个：{page}")
-        token, entry = matches[0]
-        if entry["type"] != "docx":
-            sys.exit(f"页面类型不是 docx：{entry['type']}")
-        source = self.root / "docs" / entry["path"]
-        text = source.read_text(encoding="utf-8")
-        body, resources = work_view(strip_header(text))
-        directory = Path(tempfile.mkdtemp(prefix="feishu-memory-work-"))
-        (directory / "baseline.md").write_text(body, encoding="utf-8")
-        (directory / "working.md").write_text(body, encoding="utf-8")
-        for resource in resources:
-            asset = directory / "assets" / resource["token"]
-            asset.mkdir(parents=True, exist_ok=True)
-            (asset / "description.md").write_text(
-                f"# 飞书画板 {resource['token']}\n\n尚未导出或读取画板内容。\n", encoding="utf-8"
-            )
-        task = {
-            "node_token": token,
-            "obj_token": entry["obj"],
-            "url": f"{self.base}/wiki/{token}",
-            "revision": entry.get("revision"),
-            "mirror_root": str(self.root.resolve()),
-            "mirror_path": entry["path"],
-            "mirror_sha256": digest(text),
-            "baseline_sha256": digest(body),
-            "resources": resources,
-        }
-        (directory / "task.json").write_text(json.dumps(task, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        print(directory)
-
-    def work_status(self, directory):
-        directory = Path(directory)
-        task = json.loads((directory / "task.json").read_text(encoding="utf-8"))
-        baseline = (directory / "baseline.md").read_text(encoding="utf-8")
-        working = (directory / "working.md").read_text(encoding="utf-8")
-        valid = digest(baseline) == task["baseline_sha256"]
-        print(f"baseline: {'ok' if valid else 'modified'}")
-        entry = (
-            self.manifest["nodes"].get(task["node_token"]) if str(self.root.resolve()) == task["mirror_root"] else None
-        )
-        if entry is None:
-            print("mirror: page missing")
-        else:
-            source = self.root / "docs" / entry["path"]
-            same = (
-                entry.get("revision") == task["revision"]
-                and digest(source.read_text(encoding="utf-8")) == task["mirror_sha256"]
-            )
-            print(f"mirror: {'unchanged' if same else 'changed'}")
-        expected = [(r["token"], r["token"]) for r in task["resources"]]
-        actual = RESOURCE.findall(working)
-        if expected != actual:
-            added = list((Counter(actual) - Counter(expected)).elements())
-            removed = list((Counter(expected) - Counter(actual)).elements())
-            print(
-                f"whiteboard references changed: added={added}, removed={removed}, "
-                f"reordered={not added and not removed}"
-            )
-        else:
-            print(f"whiteboard references: unchanged ({len(expected)})")
-        for resource in task["resources"]:
-            if not (directory / "assets" / resource["token"] / "description.md").exists():
-                print(f"whiteboard description missing: {resource['token']}")
-        diff = difflib.unified_diff(
-            baseline.splitlines(), working.splitlines(), fromfile="baseline.md", tofile="working.md", lineterm=""
-        )
-        print("\n".join(diff))
-        if not valid:
-            sys.exit(1)
+    def _fetch_and_write(self, entries, tokens):
+        docs_dir = self.root / "docs"
+        if not tokens:
+            return []
+        with ThreadPoolExecutor(6) as pool:
+            bodies = dict(zip(tokens, pool.map(self.fetch, (entries[t]["obj"] for t in tokens))))
+        report = []
+        for token in tokens:
+            entry = entries[token]
+            target = docs_dir / entry["path"]
+            existed = target.exists()
+            old_text = strip_header(target.read_text(encoding="utf-8")) if existed else ""
+            entry["revision"], body = bodies[token]
+            entry["cached_modified"] = entry["modified"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(header(entry, token, self.base) + body, encoding="utf-8")
+            report.append(("changed" if existed else "new", entry["path"], old_text, body))
+        return report
 
     def fetch(self, obj):
         doc = self.cli("docs", "+fetch", "--doc", obj, "--doc-format", "markdown")["document"]
@@ -283,8 +302,12 @@ class Mirror:
     def remove(self, path):
         target = self.root / "docs" / path
         target.unlink(missing_ok=True)
-        for parent in target.parents:
-            if parent == self.root / "docs" or any(parent.iterdir()):
+        self._prune_empty(target.parent)
+
+    def _prune_empty(self, directory):
+        docs_dir = self.root / "docs"
+        for parent in (directory, *directory.parents):
+            if parent == docs_dir or not parent.exists() or any(parent.iterdir()):
                 break
             parent.rmdir()
 
@@ -296,10 +319,7 @@ class Mirror:
         token, entry = matches[0]
         doc = self.cli("docs", "+fetch", "--doc", entry["obj"], "--detail", "with-ids")["document"]
         if doc["revision_id"] != entry.get("revision"):
-            print(
-                f"注意：远端 revision {doc['revision_id']} 与副本 {entry.get('revision')} 不同，"
-                f"先运行 pull --doc {token}"
-            )
+            print(f"注意：远端 revision {doc['revision_id']} 与缓存 {entry.get('revision')} 不同，建议运行 pull --doc {token}")
         blocks = list(ET.fromstring(f"<root>{doc['content']}</root>"))[1:]
         print(f"revision {doc['revision_id']}")
         for i, block in enumerate(blocks):
@@ -331,7 +351,6 @@ class Mirror:
 
 
 def find(entries, query):
-    """Match a page by token, URL tail, mirror path or title; fall back to a substring."""
     exact = [
         (t, e)
         for t, e in entries.items()
@@ -356,34 +375,7 @@ def strip_header(text):
     return text.split("---\n\n", 1)[1] if text.startswith("---\n") and "---\n\n" in text else text
 
 
-def digest(text):
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def work_view(text):
-    resources = []
-    lines = []
-    fence = None
-    for line in text.splitlines(keepends=True):
-        stripped = line.lstrip()
-        marker = re.match(r"^(`{3,}|~{3,})", stripped)
-        if marker:
-            if fence is None:
-                fence = marker[1]
-            elif marker[1][0] == fence[0] and len(marker[1]) >= len(fence):
-                fence = None
-        match = WHITEBOARD.fullmatch(line.rstrip("\r\n")) if fence is None else None
-        if match:
-            token = match[1]
-            resources.append({"token": token, "original": line.rstrip("\r\n")})
-            newline = "\n" if line.endswith("\n") else ""
-            line = f"[飞书画板 {token}](assets/{token}/description.md){newline}"
-        lines.append(line)
-    return "".join(lines), resources
-
-
 def print_segments(blocks, to_end):
-    """Group blocks into ranges usable by block_replace; lists have no block ID."""
     run = []
 
     def flush():
@@ -413,7 +405,7 @@ def print_report(report, removed, total, docs, diff_lines):
         if kind == "new":
             print(f"new\t{path} ({len(new)} chars)")
             continue
-        if kind == "moved" or old == new:
+        if old == new:
             print(f"{kind}\t{path}")
             continue
         lines = [
@@ -434,39 +426,29 @@ def print_report(report, removed, total, docs, diff_lines):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mirror", type=Path, help="Mirror directory (default ~/.cache/feishu-memory/<space>).")
+    parser.add_argument("--mirror", type=Path, help="Cache directory (default ~/.cache/feishu-memory/<space>).")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("status", help="List pages changed on the remote since the last pull.")
-    pull = sub.add_parser("pull", help="Fetch changed pages and print their diffs.")
-    pull.add_argument(
-        "--doc",
-        action="append",
-        default=[],
-        help="Only these pages (node/obj token, URL, path or title); always refetched.",
-    )
+    sub.add_parser("sync", help="Sync Wiki tree metadata, update core pages, and write TREE.md.")
+    sub.add_parser("status", help="List pages changed on the remote since the last sync.")
+    pull = sub.add_parser("pull", help="Fetch changed or uncached pages (optionally scoped).")
+    pull.add_argument("--scope", action="append", default=[], help="Only fetch pages matching this directory or path prefix.")
+    pull.add_argument("--doc", action="append", default=[], help="Force refetch specific pages (token, URL, path or title).")
     pull.add_argument("--diff-lines", type=int, default=40)
     pull.add_argument("--summary", action="store_true", help="Print change counts without page diffs.")
-    checkout = sub.add_parser("checkout", help="Create an independent local Markdown working copy.")
-    checkout.add_argument("page", help="Node/obj token, URL, mirror path or title.")
-    work_status = sub.add_parser("work-status", help="Compare a working copy to its baseline.")
-    work_status.add_argument("directory", type=Path)
     locate = sub.add_parser("locate", help="Print block IDs for a heading or text in a page.")
     locate.add_argument("page", help="Node/obj token, mirror path or title.")
     locate.add_argument("text")
     args = parser.parse_args()
     mirror = Mirror(json.loads(CONFIG.read_text(encoding="utf-8")), args.mirror)
-    if args.command == "status":
+    if args.command == "sync":
+        mirror.sync()
+    elif args.command == "status":
         mirror.status()
     elif args.command == "pull":
         docs = [urlparse(d).path.rstrip("/").split("/")[-1] if "://" in d else d for d in args.doc]
-        mirror.pull(docs, args.diff_lines, args.summary)
-    elif args.command == "locate":
-        mirror.locate(args.page, args.text)
-    elif args.command == "checkout":
-        page = urlparse(args.page).path.rstrip("/").split("/")[-1] if "://" in args.page else args.page
-        mirror.checkout(page)
+        mirror.pull(docs, args.scope, args.diff_lines, args.summary)
     else:
-        mirror.work_status(args.directory)
+        mirror.locate(args.page, args.text)
 
 
 if __name__ == "__main__":
