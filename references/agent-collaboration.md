@@ -6,9 +6,9 @@
 
 | 逻辑角色 | Antigravity / Gemini 路由 | Codex / GPT 路由 |
 | --- | --- | --- |
-| **主 Agent（规划/写作/重构/验收/日常 CLI）** | 当前 Gemini 主模型（如 Gemini 4 Neon） | `gpt-6-astra` |
-| **常规编程、环境、大规模调研与浏览器** | `flash`（Gemini 4 Hydrogen）；浏览器用 `browser`（`flash`），只读调研用 `research` | `gpt-6.1-terra`（`medium`/`high`）；复杂升级 `gpt-6.1-sol` |
-| **批量测试、命令监控与简单提取** | `flash_lite`（Gemini 3.5 Flash-Lite）；需主模型推理深度时再显式用 `inherit` | `gpt-6.1-luna`（`low`/`medium`） |
+| **主 Agent（规划/写作/重构/验收/日常 CLI）** | Gemini 4 Neon（日常主力） / Gemini 4 Carbon（高难深度攻关） | `gpt-6-astra` |
+| **执行者（常规编程/环境/大规模调研/浏览器）** | `flash`（Gemini 4 Hydrogen）；浏览器用 `browser`（`flash`），只读调研用 `research` | `gpt-6.1-terra`（`medium`/`high`）；复杂升级 `gpt-6.1-sol` |
+| **批处理执行者（批量测试/命令监控/简单提取）** | `flash_lite`（Gemini 3.5 Flash-Lite）；需主模型推理深度时再显式用 `inherit` | `gpt-6.1-luna`（`low`/`medium`） |
 | **异步等待机制** | 原生反应式唤醒（发起异步任务后结束回合等待通知，不轮询） | `wait_agent({timeout_ms: 60000})` 超时续接，不额外轮询 |
 
 ## 派发约定
